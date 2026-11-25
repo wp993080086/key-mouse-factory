@@ -20,7 +20,7 @@
 
 ```json
 {
-  "ConfigVersion": "1.3.0",
+  "ConfigVersion": "1.0.0",
   "Keys": [
     { "Key": "X", "IntervalMs": 50, "StopMode": "hold", "StopValue": 0, "Enabled": true },
     { "Key": "A", "IntervalMs": 100, "StopMode": "auto", "StopValue": 200, "Enabled": false }
