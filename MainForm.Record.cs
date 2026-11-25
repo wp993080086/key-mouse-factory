@@ -10,7 +10,7 @@ public partial class MainForm : Form
         AddPageTitle(page, "鼠标录制回放",
             $"最多 {RecordStore.MaxProfiles} 个方案，单次录制上限 {MacroRecorder.MaxDurationMs / 60000} 分钟");
 
-        // 方案列表：行高 30，正好 4 行，超出滚动（最多 10 个方案）。
+        // 方案列表：行高 30，正好 5 行，超出滚动（最多 10 个方案）。
         // 行内控件在行顶下 1px，列表放到 41 才能让首行内容顶部落在 42——与按键页
         // （列表 40 + 行内 2）完全一致，标题到内容的间距两页一样。
         pnlRecRows = new AntPanel
@@ -49,8 +49,8 @@ public partial class MainForm : Form
 
         // 录制/回放两个按钮在左下角的启动区里并排（见 BuildUi 的 pnlRun），页面内不再放按钮
 
-        // 回放行：模式 + 数值 + 单位 + 间隔（页面下半段，底部只留一行状态/提示）
-        const int PlayRowY = 190;
+        // 回放行：模式 + 数值 + 单位 + 间隔 + 倍速（贴页面底部）
+        const int PlayRowY = 226;
         lblPlay = new Label
         {
             Text = "回放",
@@ -140,15 +140,7 @@ public partial class MainForm : Form
         });
         ApplyPlayMode(); // 初始收口：默认"无限循环"隐藏数值框
 
-        // 页底只留一行：空闲时是操作提示，录制/回放时变成状态（录制中… / 回放第几次）
-        lblRecStatus = new Label
-        {
-            Location = new Point(16, 226),
-            AutoSize = true,
-            ForeColor = AntStyle.TextTertiary,
-            Font = AntStyle.GetFont(8f)
-        };
-        page.Controls.Add(lblRecStatus);
+        // 状态文字已移除：录制/回放进度只走托盘提示与右下角浮条
     }
 
     /// <summary>回放模式收口：无限循环＝隐藏数值框；其余按"次/分钟"给范围与单位。</summary>
@@ -476,21 +468,6 @@ public partial class MainForm : Form
         bool locked = rec || play;
         SyncRecordButtons();
 
-        if (rec)
-        {
-            lblRecStatus.Text = "● 录制中…（按 F9 或点按钮停止）";
-            lblRecStatus.ForeColor = AntStyle.Danger;
-        }
-        else if (play)
-        {
-            lblRecStatus.ForeColor = AntStyle.Primary; // 进度文案由 _playTimer 刷新
-        }
-        else
-        {
-            lblRecStatus.Text = RecordHint;
-            lblRecStatus.ForeColor = AntStyle.TextTertiary;
-        }
-
         foreach (var (_, chk) in _recSelection) chk.Enabled = !locked;
         foreach (var row in _recRowPanels)
             foreach (Control c in row.Controls)
@@ -556,9 +533,6 @@ public partial class MainForm : Form
         }
 
         int loop = Math.Max(1, p.CurrentLoop);
-        lblRecStatus.Text = p.InjectBlocked
-            ? "回放中 · 注入被系统拦截，请以管理员运行"
-            : $"回放中 {p.ProfileName} · 第 {loop} 次 · {FormatDuration(p.ElapsedMs)}";
         _playOverlay?.UpdateProgress(loop, p.ElapsedMs, p.InjectBlocked);
         UpdateTrayText($"键鼠工厂 · 回放 {p.ProfileName} 第 {loop} 次 {FormatDuration(p.ElapsedMs)}");
     }

@@ -180,8 +180,7 @@ public partial class MainForm : Form
             Probe(cboStartKey, "录制热键下拉"),
             Probe(cboPlayMode, "回放模式下拉", disable: true),
             Probe(numPlayGap, "间隔数字框", disable: true),
-            Probe(cboPlaySpeed, "倍速下拉", disable: true),
-            Probe(lblRecStatus, "提示文字")
+            Probe(cboPlaySpeed, "倍速下拉", disable: true)
         })
             Console.WriteLine("[cursortest] " + line);
 

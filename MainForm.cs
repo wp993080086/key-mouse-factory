@@ -25,9 +25,7 @@ public partial class MainForm : Form
     private const int RowWidth = 584;   // 配置行宽度（与鼠标页对齐），按键页内容区同宽
     private const int MaxRows = Limits.KeyRowsMax;  // 最多 5 行（默认 2 + 新增 3）
     private const int RecRowH = 30;        // 录制方案列表行高
-    private const int RecListHeight = 120; // 方案列表可视高度（正好 4 行，超出滚动，不留半行）
-    // 录制页底部那行：空闲时是操作提示，录制/回放时被状态文案顶替
-    private const string RecordHint = "录制时主窗口收进托盘，右下角留状态条。";
+    private const int RecListHeight = 150; // 方案列表可视高度（正好 5 行，超出滚动，不留半行）
 
     // Tab 索引与标题：页面顺序 = Tab 顺序，加页只改这里与 BuildUi 的构建调用
     private const int TabKeys = 0;
@@ -81,7 +79,6 @@ public partial class MainForm : Form
     private FlatScrollBar recScroll = null!;
     private AntButton btnRecord = null!;
     private AntButton btnPlay = null!;      // 录制页「开始/停止回放」，与开始录制并排
-    private Label lblRecStatus = null!;     // 空闲时是操作提示，录制/回放时是状态
     private Label lblRecEmpty = null!;
     private MacroRecorder? _recorder;
     private RecordOverlayForm? _overlay;
