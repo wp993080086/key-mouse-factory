@@ -39,6 +39,7 @@
   "PlayMode": "infinite",
   "PlayValue": 1,
   "PlayGapSec": 1,
+  "PlaybackSpeed": 1.0,
   "Mode": "B",
   "AntiTyping": true,
   "ChatKey": "ENTER"
@@ -52,8 +53,9 @@
 - `MouseClicks.Button`：`L`=左键 / `R`=右键 / `M`=滚轮（按下）/ `X1`=侧键1 / `X2`=侧键2。旧配置只有三行时，加载会自动补出关闭状态的 X1/X2 两行。
 - 侧键走的是原生 `WM_XBUTTONDOWN/UP`，不做键盘映射。部分鼠标驱动会把侧键改成键盘按键（如 PageUp/PageDown），此时钩子收不到侧键消息，需要在驱动里恢复成默认鼠标键。
 - `MouseClicks.StopMode`：`infinite`=松手停止（默认）/ `auto`=自动点击；`StopValue` 为自动点击的次数（`0` = 一直点，旧版 `count` 读入后按自动点击处理）。
-- `PlayMode`：`count`=回放 N 次 / `infinite`=一直放 / `duration`=定时 N 分钟；`PlayValue` 为对应的次数或分钟数。
+- `PlayMode`：`count`=固定次数 / `infinite`=无限循环 / `duration`=固定时长；`PlayValue` 为对应的次数或分钟数。
 - `PlayGapSec`：两轮回放之间的等待秒数（`0` = 不等待，默认 `1`，上限 999999）。
+- `PlaybackSpeed`：回放倍速，`1.00`–`5.00` 按 `0.25` 递增（默认 `1.0` 原速）。轨迹时间轴与轮间隔一起按倍速压缩；按下保持的 20ms 下限与「固定时长」的分钟数不随倍速变。加载时非法值钳到范围并归到最近的 `0.25` 档。
 - `Mode`：`B`=拦截原生 / `A`=保留原生。
 - `AntiTyping`：防打字干扰开关（默认 `true`）。开启后焦点离开游戏进程、或按下聊天键进入打字态时，连按自动暂停并放行物理键，切回游戏 / 再按聊天键恢复。关闭则回到全局拦截的原行为。
 - `ChatKey`：聊天呼出键的规范名（默认 `ENTER`），可用 `ENTER` / `ESC` / `TAB`，或 `A`–`Z`、`0`–`9`、`SPC`、小键盘 `N0`–`N9` 与符号键。与连按目标键表相互独立——这三个编辑键绝不会变成连按目标。非法值加载时回落到 `ENTER`。

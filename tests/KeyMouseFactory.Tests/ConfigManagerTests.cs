@@ -104,6 +104,23 @@ public class ConfigManagerTests
     }
 
     [Fact]
+    public void PlaybackSpeedDefaultsToOne()
+    {
+        // 倍速是新增字段：旧配置没有时回落 1.0（原速）
+        Assert.Equal(1.0, Parse("""{"StartHotkey":"F6"}""").PlaybackSpeed);
+    }
+
+    [Fact]
+    public void PlaybackSpeedAlignsToQuarterStepsAndClamps()
+    {
+        Assert.Equal(2.5, Parse("""{"PlaybackSpeed":2.5}""").PlaybackSpeed);
+        // 手改文件写进下拉里没有的值 → 归到最近的 0.25 档
+        Assert.Equal(1.25, Parse("""{"PlaybackSpeed":1.3}""").PlaybackSpeed);
+        Assert.Equal(5.0, Parse("""{"PlaybackSpeed":99}""").PlaybackSpeed);
+        Assert.Equal(1.0, Parse("""{"PlaybackSpeed":0}""").PlaybackSpeed);
+    }
+
+    [Fact]
     public void WrongValueTypeFallsBackToDefault()
     {
         ConfigManager.ParseAndSanitize("""{"Mode":123,"ObsoleteThing":true}""",

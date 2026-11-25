@@ -91,10 +91,10 @@ public partial class MainForm : Form
     // 回放
     private MacroPlayer? _player;
     private PlayOverlayForm? _playOverlay;   // 回放期间的右下角状态条（只读、鼠标穿透）
-    private AntSelect cboPlayMode = null!, cboPlayKey = null!;
+    private AntSelect cboPlayMode = null!, cboPlayKey = null!, cboPlaySpeed = null!;
     private AntNumber numPlayValue = null!, numPlayGap = null!;
     private Label lblPlay = null!, lblPlayUnit = null!;
-    private Label lblGap = null!, lblGapUnit = null!;
+    private Label lblGap = null!, lblGapUnit = null!, lblSpeed = null!;
     private readonly System.Windows.Forms.Timer _playTimer; // 回放进度 200ms 刷新
 
     private AntButton btnMain = null!;      // 唯一主按钮：控制当前 Tab 对应的引擎
@@ -419,6 +419,7 @@ public partial class MainForm : Form
             PlayMode = PlayModeKey(),
             PlayValue = Math.Max(1, numPlayValue.Value),
             PlayGapSec = Math.Clamp(numPlayGap.Value, 0, MacroPlayer.MaxGapSec),
+            PlaybackSpeed = Limits.PlaySpeedMin + cboPlaySpeed.SelectedIndex * Limits.PlaySpeedStep,
             Mode = cboMode.SelectedIndex == 0 ? "A" : "B",
             AntiTyping = chkAntiTyping.Checked,
             ChatKey = ChatKeyNames.Sanitize(txtChatKey.Text),
@@ -519,6 +520,8 @@ public partial class MainForm : Form
         numPlayValue.Max = playMode == "duration" ? Limits.PlayMinuteMax : Limits.PlayCountMax;
         numPlayValue.SetValue(Math.Clamp(_config.PlayValue, 1, numPlayValue.Max));
         numPlayGap.SetValue(Math.Clamp(_config.PlayGapSec, 0, MacroPlayer.MaxGapSec));
+        cboPlaySpeed.SelectedIndex = (int)Math.Round(
+            (_config.PlaybackSpeed - Limits.PlaySpeedMin) / Limits.PlaySpeedStep);
         ApplyPlayMode();
 
         SetKeysUiLocked(_engine.Running);

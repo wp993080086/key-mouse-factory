@@ -60,10 +60,10 @@ public partial class MainForm : Form
         };
         cboPlayMode = new AntSelect { Location = new Point(52, PlayRowY + 2), Width = 118 };
         cboPlayMode.Inner.DropDownWidth = 118;
-        cboPlayMode.Inner.Items.Add("回放 N 次");
-        cboPlayMode.Inner.Items.Add("一直放");
-        cboPlayMode.Inner.Items.Add("定时 N 分钟");
-        cboPlayMode.SelectedIndex = 1; // 默认一直放
+        cboPlayMode.Inner.Items.Add("固定次数");
+        cboPlayMode.Inner.Items.Add("无限循环");
+        cboPlayMode.Inner.Items.Add("固定时长");
+        cboPlayMode.SelectedIndex = 1; // 默认无限循环
         cboPlayMode.SelectedIndexChanged += (_, _) =>
         {
             ApplyPlayMode();
@@ -115,11 +115,30 @@ public partial class MainForm : Form
             ForeColor = AntStyle.TextSec
         };
 
+        // 回放倍速：1.0~5.0，按 0.25 递增（17 档），接在「间隔 N 秒」之后
+        lblSpeed = new Label
+        {
+            Text = "倍速",
+            Location = new Point(448, PlayRowY + 7),
+            AutoSize = true,
+            ForeColor = AntStyle.TextSec
+        };
+        cboPlaySpeed = new AntSelect { Location = new Point(484, PlayRowY + 2), Width = 64 };
+        cboPlaySpeed.Inner.DropDownWidth = 64;
+        for (int i = 0; i <= (int)((Limits.PlaySpeedMax - Limits.PlaySpeedMin) / Limits.PlaySpeedStep); i++)
+        {
+            double v = Limits.PlaySpeedMin + i * Limits.PlaySpeedStep;
+            cboPlaySpeed.Inner.Items.Add(v.ToString("0.00"));
+        }
+        cboPlaySpeed.SelectedIndex = 0; // 默认 1.0 原速
+        cboPlaySpeed.SelectedIndexChanged += (_, _) => { if (!_loading) SaveConfig(); };
+
         page.Controls.AddRange(new Control[]
         {
-            lblPlay, cboPlayMode, numPlayValue, lblPlayUnit, lblGap, numPlayGap, lblGapUnit
+            lblPlay, cboPlayMode, numPlayValue, lblPlayUnit, lblGap, numPlayGap, lblGapUnit,
+            lblSpeed, cboPlaySpeed
         });
-        ApplyPlayMode(); // 初始收口：默认"一直放"隐藏数值框
+        ApplyPlayMode(); // 初始收口：默认"无限循环"隐藏数值框
 
         // 页底只留一行：空闲时是操作提示，录制/回放时变成状态（录制中… / 回放第几次）
         lblRecStatus = new Label
@@ -132,7 +151,7 @@ public partial class MainForm : Form
         page.Controls.Add(lblRecStatus);
     }
 
-    /// <summary>回放模式收口：一直放＝隐藏数值框；其余按"次/分钟"给范围与单位。</summary>
+    /// <summary>回放模式收口：无限循环＝隐藏数值框；其余按"次/分钟"给范围与单位。</summary>
     private void ApplyPlayMode()
     {
         bool infinite = cboPlayMode.SelectedIndex == 1;
@@ -141,10 +160,13 @@ public partial class MainForm : Form
         numPlayValue.Visible = !infinite;
         lblPlayUnit.Visible = !infinite;
         lblPlayUnit.Text = timed ? "分钟" : "次";
-        // 一直放没有数值框：把「间隔」整组左移，避免中间空一大块
-        lblGap.Left = infinite ? 184 : 300;
-        numPlayGap.Left = infinite ? 216 : 332;
-        lblGapUnit.Left = infinite ? 304 : 420;
+        // 无限循环没有数值框：把「间隔 + 倍速」整组左移，避免中间空一大块
+        int shift = infinite ? 116 : 0;
+        lblGap.Left = 300 - shift;
+        numPlayGap.Left = 332 - shift;
+        lblGapUnit.Left = 420 - shift;
+        lblSpeed.Left = 448 - shift;
+        cboPlaySpeed.Left = 484 - shift;
 
         if (infinite) return;
         numPlayValue.Min = 1;
@@ -477,6 +499,7 @@ public partial class MainForm : Form
         cboPlayMode.Enabled = !locked;
         numPlayValue.Enabled = !locked && cboPlayMode.SelectedIndex != 1;
         numPlayGap.Enabled = !locked;
+        cboPlaySpeed.Enabled = !locked;
 
         if (cboStartKey != null && _tabIndex == TabRecord) cboStartKey.Enabled = !locked;
         if (cboPlayKey != null && _tabIndex == TabRecord) cboPlayKey.Enabled = !locked;
@@ -512,9 +535,9 @@ public partial class MainForm : Form
 
     private static string DescribePlayMode(PlayMode mode, int value) => mode switch
     {
-        PlayMode.Count => $"回放 {value} 次",
-        PlayMode.Duration => $"定时 {value} 分钟",
-        _ => "一直放"
+        PlayMode.Count => $"固定 {value} 次",
+        PlayMode.Duration => $"固定时长 {value} 分钟",
+        _ => "无限循环"
     };
 
     // ---------- 回放 ----------
@@ -582,6 +605,7 @@ public partial class MainForm : Form
         };
         int value = mode == PlayMode.Infinite ? 0 : Math.Max(1, numPlayValue.Value);
         int gapSec = Math.Clamp(numPlayGap.Value, 0, MacroPlayer.MaxGapSec);
+        double speed = Limits.PlaySpeedMin + cboPlaySpeed.SelectedIndex * Limits.PlaySpeedStep;
 
         var player = new MacroPlayer();
         _player = player;
@@ -595,7 +619,7 @@ public partial class MainForm : Form
 
         try
         {
-            player.Start(profile, mode, value, gapSec);
+            player.Start(profile, mode, value, gapSec, speed);
         }
         catch (Exception ex)
         {
@@ -608,7 +632,7 @@ public partial class MainForm : Form
             return;
         }
 
-        Logger.Info($"开始回放：{profile.Name} {DescribePlayMode(mode, value)} 间隔 {gapSec} 秒");
+        Logger.Info($"开始回放：{profile.Name} {DescribePlayMode(mode, value)} 间隔 {gapSec} 秒 倍速 {speed:0.00}");
         _playTimer.Start();
         UpdateRecordUi();
         RefreshRunCard();

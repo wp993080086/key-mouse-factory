@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -22,8 +23,14 @@ public static class Limits
 
     public const int KeyRowsMax = 5;         // 按键行上限
 
-    public const int PlayCountMax = 9999;    // 回放「N 次」上限
-    public const int PlayMinuteMax = 600;    // 回放「定时 N 分钟」上限
+    public const int PlayCountMax = 9999;    // 回放「固定次数」上限
+    public const int PlayMinuteMax = 600;    // 回放「固定时长」上限（分钟）
+
+    // 回放倍速：1.0~5.0，按 0.25 递增（下拉 17 档）
+    public const double PlaySpeedMin = 1.0;
+    public const double PlaySpeedMax = 5.0;
+    public const double PlaySpeedStep = 0.25;
+    public const double PlaySpeedDefault = 1.0;
 }
 
 /// <summary>连按配置行。StopMode: hold=松手停止 / auto=自动连按（StopValue 0 表示无限）。</summary>
@@ -60,9 +67,10 @@ public class AppConfig
     public string MouseStartHotkey { get; set; } = "F8"; // 鼠标连点热键
     public string RecordHotkey { get; set; } = "F9";     // 录制热键
     public string PlaybackHotkey { get; set; } = "F10";  // 回放热键
-    public string PlayMode { get; set; } = "infinite";   // 回放模式：count=回放 N 次 / infinite=一直放 / duration=定时 N 分钟
+    public string PlayMode { get; set; } = "infinite";   // 回放模式：count=固定次数 / infinite=无限循环 / duration=固定时长
     public int PlayValue { get; set; } = 1;              // 回放次数或分钟数
     public int PlayGapSec { get; set; } = 1;              // 回放间隔：两轮之间的等待（秒，0=不等待）
+    public double PlaybackSpeed { get; set; } = 1.0;      // 回放倍速：1.0~5.0，按 0.25 递增（1.0=原速）
     public string Mode { get; set; } = "B";              // 连按模式：A=保留原生（放行物理键，叠加连按）/ B=拦截原生（只发模拟）
     public bool AntiTyping { get; set; } = true;         // 防打字干扰：焦点离开游戏 / 聊天键打字态时暂停连按
     public string ChatKey { get; set; } = "ENTER";      // 聊天呼出键（切换打字态），独立于连按目标键表
@@ -201,7 +209,7 @@ public static class ConfigManager
                 continue;
             }
 
-            var merged = MergeValue(shapeValue, raw, stats);
+            var merged = MergeValue(shapeValue, raw, stats, key == nameof(AppConfig.PlaybackSpeed));
             if (merged == null)
             {
                 stats.Fallback++;
@@ -214,7 +222,11 @@ public static class ConfigManager
         return result;
     }
 
-    private static JsonNode? MergeValue(JsonNode? shape, JsonNode src, MergeStats stats)
+    /// <summary>
+    /// 按默认配置的形状逐键合并：值取文件里的，键集合取默认配置的。
+    /// <paramref name="fractional"/> 为 true 时按 double 校验（倍速这类小数字段），否则只接受 32 位整数。
+    /// </summary>
+    private static JsonNode? MergeValue(JsonNode? shape, JsonNode src, MergeStats stats, bool fractional = false)
     {
         switch (shape)
         {
@@ -239,10 +251,19 @@ public static class ConfigManager
             {
                 if (src is not JsonValue srcValue || !KindMatches(value.GetValueKind(), srcValue.GetValueKind()))
                     return null;
-                // 数字统一校验成 int 范围：手写的 1.5 / 1e9 / 超 int 会让反序列化直接抛异常
-                if (srcValue.GetValueKind() == JsonValueKind.Number &&
-                    (!long.TryParse(srcValue.ToJsonString(), out long n) || n < int.MinValue || n > int.MaxValue))
-                    return null;
+                // 整数：统一校验 int 范围，手写的 1.5 / 1e9 / 超 int 会让反序列化抛异常。
+                // 小数（倍速）：按 double 解析，范围交给 Sanitize 钳制。
+                if (srcValue.GetValueKind() == JsonValueKind.Number)
+                {
+                    string num = srcValue.ToJsonString();
+                    if (fractional)
+                    {
+                        if (!double.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+                            return null;
+                    }
+                    else if (!long.TryParse(num, out long n) || n < int.MinValue || n > int.MaxValue)
+                        return null;
+                }
                 return srcValue.DeepClone();
             }
 
@@ -287,6 +308,11 @@ public static class ConfigManager
         cfg.PlayValue = Math.Clamp(cfg.PlayValue, 1,
             cfg.PlayMode == "duration" ? Limits.PlayMinuteMax : Limits.PlayCountMax);
         cfg.PlayGapSec = Math.Clamp(cfg.PlayGapSec, 0, MacroPlayer.MaxGapSec);
+        // 倍速对齐到 0.25 网格：手改文件写进 1.13 这种下拉里没有的值时归到最近档
+        double speed = Math.Clamp(cfg.PlaybackSpeed, Limits.PlaySpeedMin, Limits.PlaySpeedMax);
+        cfg.PlaybackSpeed = Math.Clamp(
+            Math.Round((speed - Limits.PlaySpeedMin) / Limits.PlaySpeedStep) * Limits.PlaySpeedStep + Limits.PlaySpeedMin,
+            Limits.PlaySpeedMin, Limits.PlaySpeedMax);
 
         var defaults = AppConfig.Default();
 

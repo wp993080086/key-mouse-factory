@@ -29,7 +29,7 @@ internal sealed class PlayOverlayForm : Form
     private readonly Font _bold = new(AntStyle.FontName, 9f, FontStyle.Bold);
     private readonly Font _small = new(AntStyle.FontName, 8f);
     private readonly string _name;
-    private readonly int _total;        // 总次数，0 = 一直放（不显示分母）
+    private readonly int _total;        // 总次数，0 = 无限循环（不显示分母）
     private int _loop = 1;
     private long _elapsedMs;
     private bool _blocked;

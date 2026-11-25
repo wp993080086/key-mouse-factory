@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace KeyMouseFactory;
 
-/// <summary>回放模式：回放 N 次 / 一直放 / 定时 N 分钟。</summary>
+/// <summary>回放模式：固定次数 / 无限循环 / 固定时长。</summary>
 internal enum PlayMode { Count, Infinite, Duration }
 
 /// <summary>
@@ -56,6 +56,7 @@ internal sealed class MacroPlayer : IDisposable
     private int _current; // 正在进行（或刚放完）的是第几次，第 1 次进行中 = 1
     private int _sent;
     private int _gapMs = DefaultGapSec * 1000;   // 两轮之间的等待（0 = 不等待，轮尾直接接轮头）
+    private double _speed = 1.0;                  // 回放倍速：轨迹时间轴与轮间隔都按它压缩
     private Rectangle _virtualScreen;            // 虚拟桌面范围：开始时取一次，逐点定位不必再查系统度量
     private volatile bool _blocked; // SendInput 被系统/UIPI 拦截（返回 0）
 
@@ -87,14 +88,17 @@ internal sealed class MacroPlayer : IDisposable
     [DllImport("winmm.dll")]
     private static extern uint timeEndPeriod(uint ms);
 
-    public void Start(RecordProfile profile, PlayMode mode, int value, int gapSec = DefaultGapSec)
+    public void Start(RecordProfile profile, PlayMode mode, int value, int gapSec = DefaultGapSec,
+                      double speed = Limits.PlaySpeedDefault)
     {
         Stop();
         _profile = profile;
         _mode = mode;
         _value = Math.Max(1, value);
-        // 界面按「秒」填，时间轴内部仍是毫秒：999999 秒 ≈ 1.0e9 ms，不会溢出
-        _gapMs = Math.Clamp(gapSec, 0, MaxGapSec) * 1000;
+        _speed = Math.Clamp(speed, Limits.PlaySpeedMin, Limits.PlaySpeedMax);
+        // 界面按「秒」填，时间轴内部仍是毫秒：999999 秒 ≈ 1.0e9 ms，不会溢出。
+        // 轮间隔按倍速压缩：2.0 倍速下「间隔 1 秒」实际等 0.5 秒，整体节奏才一致。
+        _gapMs = (int)(Math.Clamp(gapSec, 0, MaxGapSec) * 1000 / _speed);
         _loop = 0;
         _current = 0;
         _sent = 0;
@@ -183,6 +187,9 @@ internal sealed class MacroPlayer : IDisposable
         }
     }
 
+    /// <summary>录制时间轴的相对毫秒 → 倍速后的实际等待毫秒。倍速越大等待越短。</summary>
+    private int ScaleTime(int recordedMs) => (int)(recordedMs / _speed);
+
     /// <summary>回放一轮：按相对时间轴逐点等待并注入。定时模式会在半轮处截断。</summary>
     private void PlayOnce(RecordProfile profile, int loopStart, int totalMs)
     {
@@ -196,7 +203,7 @@ internal sealed class MacroPlayer : IDisposable
             if (_mode == PlayMode.Duration && _sw.ElapsedMilliseconds >= totalMs) return;
 
             var p = pts[i];
-            WaitUntil(loopStart + p.T);
+            WaitUntil(loopStart + ScaleTime(p.T));
             if (_stop) return;
 
             switch (p.K)
@@ -217,7 +224,7 @@ internal sealed class MacroPlayer : IDisposable
                             {
                                 if (_stop) return;
                                 if (_mode == PlayMode.Duration && _sw.ElapsedMilliseconds >= totalMs) return;
-                                WaitUntil(loopStart + p.T + s * InterpStepMs);
+                                WaitUntil(loopStart + ScaleTime(p.T + s * InterpStepMs));
                                 MoveTo(p.X + dx * s / steps, p.Y + dy * s / steps, ref cx, ref cy);
                             }
                         }
