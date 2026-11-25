@@ -403,16 +403,9 @@ public partial class MainForm : Form
         pnlRows = new AntPanel
         {
             Location = new Point(16, 40),
-            Size = new Size(RowWidth + 12, 210),
+            Size = new Size(RowWidth, 210),
             BackColor = Color.Transparent
         };
-        scrollBar = new FlatScrollBar
-        {
-            Location = new Point(pnlRows.Width - 8, 0),
-            Size = new Size(8, pnlRows.Height),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right
-        };
-        scrollBar.OffsetChanged += off => pnlContent.Top = -off;
 
         pnlContent = new AntPanel
         {
@@ -422,7 +415,6 @@ public partial class MainForm : Form
         };
 
         pnlRows.Controls.Add(pnlContent);
-        pnlRows.Controls.Add(scrollBar);
         page.Controls.Add(pnlRows);
 
         btnAdd = new AntButton

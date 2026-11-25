@@ -29,7 +29,7 @@ public partial class MainForm : Form
         public Label LblCount = null!; // 次数单位「次」，仅自动点击时显示
     }
 
-    /// <summary>把行区域上空的鼠标滚轮统一转到自定义滚动条。</summary>
+    /// <summary>把录制页方案列表上空的鼠标滚轮转到自定义滚动条。</summary>
     private sealed class WheelFilter : IMessageFilter
     {
         private readonly MainForm _f;
@@ -38,13 +38,13 @@ public partial class MainForm : Form
         public bool PreFilterMessage(ref Message m)
         {
             const int WM_MOUSEWHEEL = 0x20A;
-            if (m.Msg != WM_MOUSEWHEEL || !_f.scrollBar.Visible) return false;
-            var screenRect = _f.pnlRows.RectangleToScreen(_f.pnlRows.ClientRectangle);
+            if (m.Msg != WM_MOUSEWHEEL || !_f.recScroll.Visible) return false;
+            var screenRect = _f.pnlRecRows.RectangleToScreen(_f.pnlRecRows.ClientRectangle);
             if (!screenRect.Contains(Cursor.Position)) return false;
 
             short delta = (short)((long)m.WParam >> 16);
-            int step = Math.Sign(delta) * RowH * 2; // 每格滚 2 行
-            _f.scrollBar.SetOffset(_f.scrollBar.Offset - step);
+            int step = Math.Sign(delta) * RecRowH * 2; // 每格滚 2 行
+            _f.recScroll.SetOffset(_f.recScroll.Offset - step);
             return true; // 吞掉，避免文本框等自行处理
         }
     }

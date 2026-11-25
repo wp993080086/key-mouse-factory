@@ -284,8 +284,6 @@ public partial class MainForm : Form
         RelayoutRows();
         UpdateRowButtons();
         SetKeysUiLocked(_engine.Running);
-        RefreshScroll();
-        scrollBar.SetOffset(scrollBar.MaxOffset());
         _rows[^1].TxtKey.Inner.Focus();
     }
 
@@ -299,7 +297,6 @@ public partial class MainForm : Form
         RelayoutRows();
         UpdateRowButtons();
         SetKeysUiLocked(_engine.Running);
-        RefreshScroll();
         UpdateStatus("已删除一行");
     }
 
@@ -311,22 +308,9 @@ public partial class MainForm : Form
         btnAdd.Enabled = _rows.Count < MaxRows;
     }
 
-    private void RefreshScroll()
-    {
-        scrollBar.SetMetrics((_rows.Count + 1) * RowH, pnlRows.Height);
-        pnlContent.Top = -scrollBar.Offset;
-    }
-
-    /// <summary>把指定行滚到可见区并聚焦其键名框（校验不通过时用来引导用户）。</summary>
+    /// <summary>聚焦指定行的键名框（校验不通过时引导用户）。按键页最多 5 行，固定可见无需滚动。</summary>
     private void FocusKeyBox(RowControls row)
     {
-        int idx = _rows.IndexOf(row);
-        if (idx < 0) return;
-        int top = idx * RowH;
-        if (top < scrollBar.Offset)
-            scrollBar.SetOffset(top);
-        else if (top + RowH > scrollBar.Offset + pnlRows.Height)
-            scrollBar.SetOffset(Math.Min(top + RowH - pnlRows.Height, scrollBar.MaxOffset()));
         row.TxtKey.Inner.Focus();
         row.TxtKey.Inner.SelectAll();
     }

@@ -746,7 +746,7 @@ internal sealed class AntSelect : AntPanel
 }
 
 /// <summary>
-/// AntD 风格细滚动条：6px 圆角滑块（#D9D9D9），支持拖动和轨道点击，
+/// AntD 风格细滚动条：10px 圆角滑块（#D9D9D9），支持拖动和轨道点击，
 /// 宿主通过 OffsetChanged 移动内容。
 /// </summary>
 internal sealed class FlatScrollBar : Control
@@ -756,6 +756,7 @@ internal sealed class FlatScrollBar : Control
     private int _dragStartY;
     private int _dragStartOffset;
     private int _travel;
+    private int _lastDragTick; // 拖动节流：MouseMove 频率远高于屏幕刷新率
 
     public int ContentHeight { get; private set; }
     public int ViewportHeight { get; private set; }
@@ -767,7 +768,7 @@ internal sealed class FlatScrollBar : Control
     {
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-        Width = 8;
+        Width = 12;
         BackColor = Color.White;
         Cursor = Cursors.Hand; // 可拖动/点轨道
         TabStop = false;
@@ -801,7 +802,7 @@ internal sealed class FlatScrollBar : Control
         _travel = trackH - thumbH;
         double ratio = MaxOffset() == 0 ? 0 : (double)Offset / MaxOffset();
         int y = 4 + (int)(ratio * _travel);
-        _thumbRect = new Rectangle(1, y, 6, thumbH);
+        _thumbRect = new Rectangle(1, y, 10, thumbH);
 
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         AntStyle.FillRounded(e.Graphics, AntStyle.Border, _thumbRect, 3);
@@ -825,6 +826,7 @@ internal sealed class FlatScrollBar : Control
             }
         }
         _dragging = true;
+        _lastDragTick = 0; // 首帧立即响应
         Capture = true;
     }
 
@@ -832,6 +834,11 @@ internal sealed class FlatScrollBar : Control
     {
         base.OnMouseMove(e);
         if (!_dragging || _travel <= 0) return;
+        // 内容容器每次位移都要移动整行子控件，MouseMove 每秒上百次会压垮主线程。
+        // 限到屏幕刷新级别（约 60fps），肉眼无差但重绘量降一个数量级。
+        int tick = Environment.TickCount;
+        if (_lastDragTick != 0 && tick - _lastDragTick < 16) return;
+        _lastDragTick = tick;
         double ratio = (double)(e.Y - _dragStartY) / _travel;
         SetOffset(_dragStartOffset + (int)(ratio * MaxOffset()));
     }
@@ -839,6 +846,12 @@ internal sealed class FlatScrollBar : Control
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
+        if (_dragging && _travel > 0)
+        {
+            // 松手时按最终坐标补一次：限频可能丢了最后几像素，别让滑块停在半路
+            double ratio = (double)(e.Y - _dragStartY) / _travel;
+            SetOffset(_dragStartOffset + (int)(ratio * MaxOffset()));
+        }
         _dragging = false;
         Capture = false;
     }

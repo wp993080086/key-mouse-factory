@@ -21,8 +21,8 @@ public partial class MainForm : Form
         };
         recScroll = new FlatScrollBar
         {
-            Location = new Point(pnlRecRows.Width - 8, 0),
-            Size = new Size(8, pnlRecRows.Height),
+            Location = new Point(pnlRecRows.Width - 12, 0),
+            Size = new Size(12, pnlRecRows.Height),
             Anchor = AnchorStyles.Top | AnchorStyles.Right
         };
         recScroll.OffsetChanged += off => pnlRecContent.Top = -off;

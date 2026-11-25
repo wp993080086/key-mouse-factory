@@ -69,8 +69,7 @@ public partial class MainForm : Form
     private readonly Font _fontBold;
 
     private Panel pnlRows = null!;
-    private Panel pnlContent = null!;   // 行内容容器，滚动时整体位移
-    private FlatScrollBar scrollBar = null!;
+    private Panel pnlContent = null!;   // 行内容容器
     private AntButton btnAdd = null!;
 
     // 录制页
@@ -525,7 +524,6 @@ public partial class MainForm : Form
         SetKeysUiLocked(_engine.Running);
         SetMouseUiLocked(_mouseEngine.Running);
         RefreshRunCard();
-        RefreshScroll();
         // 启动态也要收口一次：热键下拉的取值、启用状态、别的槽位置灰都靠它，
         // 少了这一步得先切一次 Tab 才正常
         SyncHotkeyUI();
