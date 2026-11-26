@@ -39,9 +39,11 @@ public partial class MainForm : Form
         {
             const int WM_MOUSEWHEEL = 0x20A;
             if (m.Msg != WM_MOUSEWHEEL || !_f.recScroll.Visible) return false;
+            // 过滤器是应用级的：换成屏幕坐标后才能和 Cursor.Position 比较，把命中限制在录制列表上方
             var screenRect = _f.pnlRecRows.RectangleToScreen(_f.pnlRecRows.ClientRectangle);
             if (!screenRect.Contains(Cursor.Position)) return false;
 
+            // WParam 高字 = 有符号滚轮增量（120/格），低字 = 按键状态；转 short 才能保留负号
             short delta = (short)((long)m.WParam >> 16);
             int step = Math.Sign(delta) * RecRowH * 2; // 每格滚 2 行
             _f.recScroll.SetOffset(_f.recScroll.Offset - step);

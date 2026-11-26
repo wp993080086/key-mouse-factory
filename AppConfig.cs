@@ -15,7 +15,7 @@ public static class Limits
     public const int MouseMsMin = 100;       // 鼠标连点间隔下限
     public const int MouseMsMax = 10000;     // 鼠标连点间隔上限
     public const int MouseMsStep = 100;      // 鼠标连点间隔步进
-    public const int MouseMsDefault = 300;   // 鼠标连点间隔默认值
+    public const int MouseMsDefault = 300;   // 界面非法输入/新增鼠标行的回退值（配置骨架默认 100，见 Default）
 
     // 自动连按 / 自动点击次数：0 = 无限，上限统一 99999（按键页与鼠标页一致）
     public const int KeyCountMax = 99999;
@@ -289,6 +289,8 @@ public static class ConfigManager
         if (!cfg.TryGetPropertyValue("PlayGapMs", out var old) || old is not JsonValue v) return;
         if (!long.TryParse(v.ToJsonString(), out long ms)) return;
 
+        // +500 是把毫秒四舍五入到最近整秒（1499→1、1500→2），不是整除截断；
+        // 删掉它会让旧配置的时间语义悄悄偏移最多 1 秒。
         int sec = (int)Math.Clamp((ms + 500) / 1000, 0, MacroPlayer.MaxGapSec);
         cfg[nameof(AppConfig.PlayGapSec)] = sec;
         Logger.Info($"配置迁移：PlayGapMs={ms} → PlayGapSec={sec}");
@@ -331,6 +333,7 @@ public static class ConfigManager
         // 鼠标固定左/右/中/X1/X2 五行：按 Button 对齐，缺的补默认值，多余的按钮丢弃；
         // 旧配置只有三行时侧键两行自动补默认（关闭状态），不会被清空；
         // v1.1.x 的 count（按住点 N 次）并入 auto
+        // 同一按钮的重复行取第一条，其余丢弃（手改文件或旧版本可能产生重复）
         var byButton = (cfg.MouseClicks ?? new List<MouseClickConfig>())
             .GroupBy(m => (m.Button ?? "").Trim().ToUpperInvariant())
             .ToDictionary(g => g.Key, g => g.First());

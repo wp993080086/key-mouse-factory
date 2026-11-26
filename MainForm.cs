@@ -102,8 +102,8 @@ public partial class MainForm : Form
     private AntCheckBox chkAntiTyping = null!;   // 防打字干扰开关（按键页底栏）
     private Label lblChatKey = null!;            // "聊天键" 标签
     private AntInput txtChatKey = null!;         // 聊天呼出键编辑框（按键捕获）
-    private Label lblHotkey = null!;   // "连按热键/连点热键" 标签，随 Tab 切换
-    private Label lblMode = null!;     // "连按模式" 标签（仅按键页显示）
+    private Label lblHotkey = null!;   // 热键标签，随 Tab 切换（连按/连点/录制/回放热键）
+    private Label lblMode = null!;     // "连按模式"/"回放热键" 标签（按键页与录制页显示，鼠标页隐藏）
     private Label lblModeTip = null!;  // 底部提示文字，随 Tab 切换
     private bool _loading = true;      // 构造/加载配置期间不触发自动保存
     private bool _hotkeySyncing;       // Tab 切换同步热键下拉框时不触发保存/重注册
@@ -365,6 +365,7 @@ public partial class MainForm : Form
 
         // 点标题栏 X（以及系统菜单关闭、Alt+F4）都是 WM_SYSCOMMAND + SC_CLOSE：
         // 在这里拦下先问「最小化还是退出」，不交给默认处理，所以窗口不会直接关掉。
+        // WParam 低 4 位是系统保留位，按 Win32 约定须用 0xFFF0 屏蔽后再比 SC_CLOSE
         if (m.Msg == NativeMethods.WM_SYSCOMMAND
             && (m.WParam.ToInt64() & 0xFFF0) == NativeMethods.SC_CLOSE
             && !_exiting)
@@ -375,6 +376,7 @@ public partial class MainForm : Form
 
         // 禁用控件收不到鼠标消息，系统把光标交回窗体：这里补「禁止」光标，
         // 否则鼠标停在灰掉的按钮上还是普通箭头，看不出不能点（各容器 AntPanel 里也各看一眼）
+        // LParam 低字 = 命中测试码、高字 = 触发消息；只在客户区补「禁止」光标
         if (m.Msg == WM_SETCURSOR && ((long)m.LParam & 0xFFFF) == HTCLIENT && AntPanel.HasDisabledChildAt(this))
         {
             Cursor.Current = Cursors.No;
@@ -409,7 +411,7 @@ public partial class MainForm : Form
     private void SaveConfig()
     {
         // 热键下拉框跟随 Tab：当前 Tab 编辑对应引擎的热键，另一侧沿用已存值
-        // （录制页不回写热键，两个引擎的热键都沿用已存值）
+        // （录制页回写录制/回放热键；连按、连点两个引擎的热键沿用已存值）
         var cfg = new AppConfig
         {
             StartHotkey = _tabIndex == TabKeys ? cboStartKey.Text : _config.StartHotkey,

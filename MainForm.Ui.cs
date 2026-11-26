@@ -179,7 +179,7 @@ public partial class MainForm : Form
         txtChatKey.Inner.CharacterCasing = CharacterCasing.Upper;
         txtChatKey.Inner.TextAlign = HorizontalAlignment.Center;
         txtChatKey.Text = ChatKeyNames.Default;
-        // 聊天键用物理按键捕获：A-Z/0-9/符号由 KeyDown 按 VK 写入，与各处键名框同构
+        // 聊天键用物理按键捕获：Enter/ESC/TAB 与符号键由 KeyDown 按 VK 写入，A-Z/0-9 交给 KeyPress
         txtChatKey.Inner.KeyDown += ChatKeyBox_KeyDown;
         txtChatKey.Inner.KeyPress += ChatKeyBox_KeyPress;
         txtChatKey.Inner.Leave += (_, _) =>
@@ -206,8 +206,8 @@ public partial class MainForm : Form
         pnlRun.Controls.Add(txtChatKey);
         Controls.Add(pnlRun);
 
-        // 设置区（右下）：热键下拉框跟随当前 Tab——按键页编辑连按热键（默认 F6）、
-        // 鼠标页编辑连点热键（默认 F8）；两个热键同时全局生效。
+        // 设置区（右下）：热键下拉框跟随当前 Tab——按键页=连按(F6)、鼠标页=连点(F8)、
+        // 录制页=录制(F9)+回放(F10)，四个热键同时全局生效。
         // 分隔线右移后只剩 240 宽：标签 14 起、下拉 86 起 120 宽，右侧仍留 34 的余量给说明文字
         var pnlSet = new AntPanel { Location = new Point(398, 306), Size = new Size(240, 92), BackColor = Color.Transparent };
         lblHotkey = new Label { Text = "连按热键", Location = new Point(14, 12), AutoSize = true, ForeColor = AntStyle.TextSec };

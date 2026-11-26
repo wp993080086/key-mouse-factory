@@ -273,6 +273,8 @@ public partial class MainForm : Form
                 {
                     var b = _overlay.Bounds;
                     using var bmp = new Bitmap(b.Width, b.Height);
+                    // 录制浮窗非穿透、可见且能取到桌面 DC，可直接抓屏；
+                    // 回放浮窗是穿透的（见 --playtest），拿不到桌面 DC，那里改用 DrawToBitmap。
                     using (var g = Graphics.FromImage(bmp)) g.CopyFromScreen(b.Location, Point.Empty, b.Size);
                     bmp.Save(pngPath, System.Drawing.Imaging.ImageFormat.Png);
                     Logger.Info($"[recordtest] 悬浮条 {b} → {pngPath}");
@@ -397,6 +399,7 @@ public partial class MainForm : Form
         using var bmp = new Bitmap(Width, Height);
         using var g = Graphics.FromImage(bmp);
         IntPtr hdc = g.GetHdc();
+        // PW_RENDERFULLCONTENT 强制 DWM 绘制完整客户区，否则抓不到自绘按钮的即时重绘
         try { NativeMethods.PrintWindow(Handle, hdc, NativeMethods.PW_RENDERFULLCONTENT); }
         finally { g.ReleaseHdc(hdc); }
         bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);

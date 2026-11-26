@@ -483,7 +483,7 @@ public partial class MainForm : Form
         UpdateTrayText();
     }
 
-    /// <summary>托盘悬停提示：录制 &gt; 回放 &gt; 引擎运行 &gt; 空闲（Windows 限制长度，超出截断）。</summary>
+    /// <summary>托盘悬停提示：录制 &gt; 回放 &gt; 注入被拦截 &gt; 引擎运行 &gt; 空闲（Windows 限制长度，超出截断）。</summary>
     private void UpdateTrayText(string? progress = null)
     {
         if (trayIcon == null) return;

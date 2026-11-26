@@ -89,7 +89,7 @@ internal static class RecordStore
     }
 
     /// <summary>
-    /// 纯函数：脏数据钳制，供 Load 与单测共用，不碰磁盘。
+    /// 就地清洗脏数据（会修改传入的 RecordProfile 并可能写日志），不碰磁盘，供 Load 与单测共用。
     /// JSON 里显式写 null 会绕过属性的初始化器（= new()），所以 Screen/Points 都要在这里兜底；
     /// 回放路径直接读 Screen.W，漏掉就会 NullReferenceException。
     /// </summary>
@@ -120,7 +120,7 @@ internal static class RecordStore
 
     public static string NewId() => Guid.NewGuid().ToString("N")[..8];
 
-    /// <summary>自动命名：优先方案A…方案Z，用尽后退到"方案27"这类数字名。与现有方案名去重。</summary>
+    /// <summary>自动命名：优先方案A…方案Z，用尽后按数字从 1 起算（如"方案1"）。与现有方案名去重。</summary>
     public static string NextName(List<RecordProfile> existing)
     {
         var used = new HashSet<string>(existing.Select(p => p.Name));

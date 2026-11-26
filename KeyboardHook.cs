@@ -17,6 +17,8 @@ internal sealed class KeyboardHook : IDisposable
 
     public void Install()
     {
+        // 必须持有委托的强引用直到卸载：SetWindowsHookEx 只存非托管函数指针，
+        // 临时委托被 GC 回收后系统回调会跳到已释放的 thunk 直接崩溃。
         _proc = HookProc;
         _hook = NativeMethods.SetWindowsHookEx(
             NativeMethods.WH_KEYBOARD_LL, _proc, NativeMethods.GetModuleHandle(null), 0);

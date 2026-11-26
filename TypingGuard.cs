@@ -34,7 +34,8 @@ internal sealed class TypingGuard
         _chatKeyDown = false;
         _lastLost = false;
         uint pid = NativeMethods.ForegroundPid();
-        // 点界面按钮开启的瞬间前台是本程序，先不锁，等焦点回到游戏后在 SampleFocus 里补锁
+        // 点界面按钮开启的瞬间前台是本程序，先不锁，等焦点回到游戏后在 ApplyForegroundPid 里补锁
+        // （由 Refresh / ObserveDown 调用）
         _gamePid = (pid != 0 && pid != (uint)_selfPid) ? (int)pid : 0;
     }
 

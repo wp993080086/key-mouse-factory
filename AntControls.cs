@@ -255,7 +255,7 @@ internal sealed class AntCheckBox : Control
         }
         else
         {
-            // 未选中：白底 + 边框，悬停/聚焦变蓝，标准 Checkbox 观感
+            // 未选中：白底 + 边框，悬停变蓝，标准 Checkbox 观感（控件 TabStop=false，无键盘聚焦态）
             AntStyle.FillRounded(e.Graphics, Color.White, box, 3);
             var borderColor = !Enabled ? AntStyle.TextDisabled : _hover ? AntStyle.Primary : AntStyle.Border;
             AntStyle.DrawRounded(e.Graphics, borderColor, box, 3);
@@ -392,7 +392,7 @@ internal class AntInput : AntPanel
 
 /// <summary>
 /// AntD 数字输入框（InputNumber）：右侧上/下步进按钮（整块右栏可点，上下各半），
-/// 默认步长 1，支持点击步进与键盘 ↑/↓，范围 50~5000，数值居中。
+/// 默认步长 1，支持点击步进与键盘 ↑/↓，默认范围 50~5000（Min/Max 可被调用方改写），数值居中。
 /// 可点区域悬停为手型光标，禁用时为禁止光标。
 /// </summary>
 internal sealed class AntNumber : AntInput
@@ -800,6 +800,7 @@ internal sealed class FlatScrollBar : Control
     {
         if (ContentHeight <= ViewportHeight) return;
         int trackH = Height - 8;
+        // 滑块最小 28px：内容极长时按比例算出的高度会小到抓不住；同时保证 _travel 为正
         int thumbH = Math.Max(28, (int)((double)ViewportHeight / ContentHeight * trackH));
         _travel = trackH - thumbH;
         double ratio = MaxOffset() == 0 ? 0 : (double)Offset / MaxOffset();

@@ -36,6 +36,7 @@ internal sealed class MacroRecorder : IDisposable
         lock (_sync) _points.Clear();
         _lastT = -1;
         _limitReached = false;
+        // 外扩 4px 覆盖边缘命中与采样抖动，避免录进悬浮条自身的轨迹
         _exclude = Rectangle.Inflate(excludeBounds, 4, 4);
         _sw.Restart();
 
@@ -45,7 +46,7 @@ internal sealed class MacroRecorder : IDisposable
         Running = true;
     }
 
-    /// <summary>悬浮条拖动后同步排除区域，否则会把自己拖拽的轨迹录进去。</summary>
+    /// <summary>悬浮条拖动后同步排除区域，否则会把自己拖拽的轨迹录进去。同样外扩 4px。</summary>
     public void UpdateExclude(Rectangle overlayBounds) =>
         _exclude = Rectangle.Inflate(overlayBounds, 4, 4);
 
@@ -106,9 +107,11 @@ internal sealed class MacroRecorder : IDisposable
             int dx = e.X - _lastX, dy = e.Y - _lastY;
             int dist2 = dx * dx + dy * dy;
             if (dt < MinSampleGapMs && dist2 < MoveJitterPx2) return; // 高频小抖动丢弃
+            // 零位移事件全丢会让紧跟其后的 Down 点坐标过期；每 40ms 留一个作为静止段位置锚点
             if (dt < 40 && dist2 == 0) return;                        // 停住时的重复事件丢弃
         }
 
+        // 触顶后的快路径：避免每个鼠标事件都进锁排队（钩子回调对延迟敏感）。真正判定在锁内，防并发穿透。
         if (_limitReached) return;
 
         lock (_sync)

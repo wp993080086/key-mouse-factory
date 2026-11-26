@@ -128,6 +128,8 @@ internal static class NativeMethods
         public ushort wParamH;
     }
 
+    /// <summary>对应 Win32 INPUT 的 union：三个成员共用同一块内存，保持 FieldOffset(0)
+    /// 才能使 Marshal.SizeOf&lt;INPUT&gt;() 与系统一致，否则 SendInput 布局错位会静默失败。</summary>
     [StructLayout(LayoutKind.Explicit)]
     public struct InputUnion
     {
@@ -309,7 +311,7 @@ internal static class NativeInput
 
     /// <summary>
     /// 纯函数：物理像素坐标 → 虚拟桌面归一化坐标（0–65535），越界钳到边界。
-    /// 多屏时虚拟桌面原点可能是负数；宽高不足 2 时退化为 0，避免除零。
+    /// 多屏时虚拟桌面原点可能是负数；宽高不足 2 时按 2 处理（分母退化为 1），避免除零。
     /// </summary>
     internal static (int X, int Y) NormalizePointer(int x, int y, Rectangle v)
     {

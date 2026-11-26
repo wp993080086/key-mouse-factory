@@ -6,7 +6,7 @@ using System.Threading;
 namespace KeyMouseFactory;
 
 /// <summary>
-/// 轻量错误日志：写入 exe 同目录 error.log。
+/// 轻量日志：写入 AppPaths.DataDir 下的 error.log（默认 exe 同目录，无写权限时回退 %APPDATA%\KeyMouseFactory）。
 /// 追加写入，超过 200 条时整理一次（保留最新的 200 条），不做每次全量重写。
 /// </summary>
 internal static class Logger
