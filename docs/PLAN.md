@@ -11,6 +11,17 @@
 
 本文档按功能方案组织，版本变更集中记录于此，正文中的版本号均为当时的历史事实陈述。
 
+### v1.4.0（交互打磨，已落地）
+
+- 分支：`v1.4.0`（基线 master `b776957` 之前），程序版本 `<Version>1.4.0</Version>`。
+- 本期交付（按提交顺序）：
+  - `645423b` 起分支升版本号；`docs/CONFIG.md` 示例里的 `ConfigVersion` 固定为 `1.0.0`，不再随版本同步（它只是示例）。
+  - `89c75b7` **滚动条修复**：按键页滚动条因内容高 204px ≤ 视口 210px 恒不可见，连同死代码 `WheelFilter` 一并删除；`WheelFilter` repurpose 给录制页列表（步进按 `RecRowH`），`FlatScrollBar` 控件 8→12px、滑块 6→10px；拖动时按 60fps 节流内容位移、松手补位，缓解约 40 个自绘子控件重排造成的卡顿。
+  - `0c4af1f` **倍速 + 模式改名**：回放设置新增倍速下拉 `PlaybackSpeed`（1.00–5.00 / 0.25 档，默认 1.0），轨迹时间轴与轮间隔一起缩放、20ms 按下保持与固定时长分钟数不缩放；为此修复配置合并只认整数的问题（浮点字段需 `fractional: true`），单测 109 → 111。回放模式文案改为「固定次数 / 无限循环 / 固定时长」，配置键 `count`/`infinite`/`duration` 不变。
+  - `b776957` **录制页布局**：删掉底部提示行与状态文字行（运行时主窗口已收进托盘，页面内看不到），回放设置行贴底，`RecListHeight` 120→150（一屏 4→5 行）。
+  - 按钮文案联动热键（「开始录制 · F9」等，去掉 ●/■/▶ 符号）、录制浮窗标停止热键、新增连按/连点运行浮窗 `EngineOverlayForm.cs`（鼠标穿透）。
+- 上述改动对旧方案的修正见 §7.5（模式名与录制页提示）、§12（变速回放已实现）、§14（状态行已移除）与文末速查表。
+
 ### v1.2.0（本文主体，已落地并发布）
 
 - 分支：`v1.2.0`（基线 master `181c37d`），程序版本 `<Version>1.2.0</Version>`。
@@ -476,11 +487,13 @@ MacroPlayer.Start(profile, repeatMode, value)
 
 提示：录制中主窗口收进托盘，屏幕右下角留一条录制状态条；F9 开始/结束录制，F10 开始/停止回放。
 ```
+> v1.4.0 落地：上面这段「提示：…」与页面内的录制/回放状态文字行都已移除——运行时主窗口本就收进托盘，页面内文字看不到；状态只走托盘悬停与右下角浮条。列表一屏由 4 行加到 5 行（`RecListHeight` 120→150）。方案列表上方的 ASCII 图是 v1.2.0 设计稿，按钮文字按 v1.4.0 实际为「开始录制 · F9」/「开始回放 · F10」（左边不带符号）。
 
 - 方案选择：`AntCheckBox` 实现**单选**（勾一个自动取消其他），不加新控件类型。
 - 名字：行内 `AntInput`，失焦或回车即存。
 - 删除：行尾 `AntButton(Text, Danger)`，点击后即时删除（方案可重录，不做二次确认弹窗，但状态栏提示"已删除 方案B"）。
-- 回放设置：`[模式下拉] [数值框] [单位]`，模式 = `回放 N 次` / `一直放` / `定时 N 分钟`；"一直放"隐藏数值框；N 次范围 1–9999；分钟范围 1–600，步进 1。
+- 回放设置：`[模式下拉] [数值框] [单位]`，模式 = `固定次数` / `无限循环` / `固定时长`（v1.2.0 方案原文为「回放 N 次 / 一直放 / 定时 N 分钟」，v1.4.0 改文案，配置键不变）；「无限循环」隐藏数值框；固定次数范围 1–9999；固定时长范围 1–600 分钟，步进 1。回放设置行 v1.4.0 起贴页面底部（y=226）。
+- **倍速**（v1.4.0 追加）：模式与间隔之后一格倍速下拉，`1.00`–`5.00` 按 `0.25` 递增（默认 `1.00`），配置字段 `PlaybackSpeed`；缩放轨迹时间轴与轮间隔，不缩放 20ms 按下保持与固定时长的分钟数。
 - 主按钮（左下）跟随 Tab：`开始回放 / 停止回放`；`lblTarget` = "当前控制：轨迹回放"。
 - 未选方案点开始 → 提示"请先勾选一个方案"。
 - 回放中锁定：列表（名称、勾选、删除）+ 模式/数值 + 录制按钮。
@@ -650,7 +663,7 @@ MacroPlayer.Start(profile, repeatMode, value)
 
 - 滚轮录制/回放、键盘事件录制（本期只按需求做"鼠标轨迹 + 点击"）
 - 多方案同时回放、方案拼接、片段剪辑
-- 变速回放（0.5x/2x）、单步调试、轨迹可视化编辑器
+- ~~变速回放（0.5x/2x）、单步调试、轨迹可视化编辑器~~ —— **变速回放已在 v1.4.0 实现**：倍速 `1.00`–`5.00` 按 `0.25` 递增（仅加速、不做 0.5x 慢放）；单步调试与轨迹可视化编辑器仍不做
 - 相对窗口坐标（窗口移动后仍能对齐）——需要额外记录窗口句柄与偏移，留到后续
 - 方案云端同步/导入导出
 - 把两个老引擎合并进统一调度器（收益低、回归风险高）
@@ -736,10 +749,14 @@ MacroPlayer.Start(profile, repeatMode, value)
 | `MainForm.SaveConfig` / `LoadConfigToUi` | ✅ 已完成 | `Keys[].StopMode/StopValue`、`MouseClicks[]`、`RecordHotkey` / `PlaybackHotkey` / `PlayMode` / `PlayValue` 全量读写 |
 | `MainForm.RegisterHotkeys` / `UnregisterHotkeys` | ✅ 已完成 | 注册/注销 4 个热键 + 同名键只注册一次并提示重复项 |
 | `MainForm.BuildTray` | ✅ 已完成 | 托盘菜单含开始/停止录制、开始/停止回放；悬停提示随状态变化 |
-| `MainForm.WheelFilter` | ✅ 已完成 | 作用于当前 Tab 的滚动区（方案列表 / 按键行区） |
+| `MainForm.WheelFilter` | v1.4.0 改 | 现只接管录制页列表的滚轮（步进 `RecRowH`）；按键页滚动条因内容恒 ≤ 视口已删除，原「当前 Tab 滚动区」实现作废 |
+| `FlatScrollBar` | v1.4.0 改 | 控件宽 8→12px、滑块 6→10px；拖动位移节流 ~60fps、松手补位 |
 | `NativeMethods` | ✅ 已完成 | 中键常量、`WM_MOUSEMOVE`、`MOUSEEVENTF_MOVE/ABSOLUTE/VIRTUALDESK`、`GetSystemMetrics` |
 | `NativeInput.SendMouseButton` / `SendMouseMoveAbsolute` | ✅ 已完成 | 改为 `(int vk, bool up)` 与绝对定位，返回 bool 以暴露注入失败 |
 | `RecordStore` / `MacroRecorder` / `MacroPlayer` / `RecordOverlayForm` | ✅ 已完成 | 方案存储、录制、回放、录制悬浮条 |
 | `PlayOverlayForm` / `MacroPlayer.CurrentLoop` | ✅ 已完成 | 回放状态条（穿透只读）+ 当前第几次 |
+| `RecordOverlayForm` | v1.4.0 改 | 加宽 240px，计时旁标停止热键 `按 F9 停止`，`SetHotkey()` 随热键变更刷新 |
+| `EngineOverlayForm` | v1.4.0 新增 | 连按 / 连点运行浮条（穿透只读），显示「连按中 · F6 停止」/「连点中 · F8 停止」 |
+| `AppConfig.PlaybackSpeed` / `Limits.PlaySpeed*` | v1.4.0 新增 | 回放倍速配置与 0.25 网格钳制；配置合并浮点字段须传 `fractional: true` |
 | `Program.cs` | ✅ 已完成 | `--screenshot`（含 `mouse`/`record`）、`--uitest`、`--keytest`、`--recordtest`、`--playtest`（含状态条截图）、`--playoverlaytest`、`--movetest`、`--mouselayout`、`--mousetest` |
 

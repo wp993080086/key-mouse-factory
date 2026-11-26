@@ -21,7 +21,7 @@ dotnet publish -c Release -r win-x64 ^
 
 ## 单元测试
 
-`tests/KeyMouseFactory.Tests` 是 xUnit 项目，覆盖键名映射、聊天键映射与规范化、防打字干扰暂停判定、热键回退、鼠标侧键消息与注入标志、配置逐字段合并与越界钳制、录制方案脏数据钳制、轨迹坐标归一化、回放进度文本等纯逻辑（109 项）：
+`tests/KeyMouseFactory.Tests` 是 xUnit 项目，覆盖键名映射、聊天键映射与规范化、防打字干扰暂停判定、热键回退、鼠标侧键消息与注入标志、配置逐字段合并（含浮点倍速字段）与越界钳制、录制方案脏数据钳制、轨迹坐标归一化、回放进度文本等纯逻辑（111 项）：
 
 ```bash
 dotnet test tests/KeyMouseFactory.Tests/KeyMouseFactory.Tests.csproj
