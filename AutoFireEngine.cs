@@ -79,9 +79,6 @@ internal sealed class AutoFireEngine
     /// <summary>防打字干扰是否生效；chatVk=聊天键 VK。必须在 Start 前调用。</summary>
     public void ConfigureGuard(bool enabled, int chatVk) => _guard.Configure(enabled, chatVk);
 
-    /// <summary>当前是否因防打字干扰而暂停（供 UI 状态显示）。</summary>
-    public bool TypingPaused => _guard.Paused;
-
     [DllImport("winmm.dll")]
     private static extern uint timeBeginPeriod(uint ms);
 

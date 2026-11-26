@@ -9,8 +9,6 @@ namespace KeyMouseFactory;
 /// </summary>
 internal static class EngineProbe
 {
-    private const int ChKey = 0;
-    private const int ChMouse = 1;
     private const int MaxSamples = 200000;
 
     private static readonly List<long>[] _down = { new(), new() };

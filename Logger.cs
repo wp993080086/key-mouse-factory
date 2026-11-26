@@ -1,4 +1,7 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text;
+using System.Threading;
 
 namespace KeyMouseFactory;
 
@@ -9,6 +12,9 @@ namespace KeyMouseFactory;
 internal static class Logger
 {
     private static readonly object Sync = new();
+    private static readonly ConcurrentQueue<string> Pending = new();
+    private static System.Threading.Timer? _flushTimer;
+    private static int _timerStarted;
     private const int MaxEntries = 200;
     private static int _lineCount = -1; // -1 = 还没读过盘；避免每次写都全量读一遍
     private static int _reported;       // 异常连环触发时只弹一次窗口
@@ -79,7 +85,36 @@ internal static class Logger
     public static void Info(string message) =>
         Write($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [Info] {message}");
 
-    public static void Write(string entry)
+    /// <summary>
+    /// 钩子回调等实时路径专用：只把日志排队，由后台线程每 200ms 批量落盘，
+    /// 调用线程完全不碰磁盘（避免阻塞 LowLevelHooksTimeout 被系统摘钩）。
+    /// 进程退出前冲刷队列；崩溃日志仍走同步的 Error/Write。
+    /// </summary>
+    public static void InfoAsync(string message)
+    {
+        Pending.Enqueue($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [Info] {message}");
+        if (Volatile.Read(ref _timerStarted) != 0) return;
+        if (Interlocked.Exchange(ref _timerStarted, 1) != 0) return;
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => FlushPending();
+        _flushTimer = new System.Threading.Timer(_ => FlushPending(), null, 200, 200);
+    }
+
+    private static void FlushPending()
+    {
+        if (Pending.IsEmpty) return;
+        var sb = new StringBuilder();
+        int count = 0;
+        while (Pending.TryDequeue(out var line))
+        {
+            sb.Append(line).Append(Environment.NewLine);
+            count++;
+        }
+        if (count > 0) WriteCore(sb.ToString(), count);
+    }
+
+    public static void Write(string entry) => WriteCore(entry + Environment.NewLine, 1);
+
+    private static void WriteCore(string text, int lines)
     {
         try
         {
@@ -87,8 +122,8 @@ internal static class Logger
             {
                 if (_lineCount < 0)
                     _lineCount = File.Exists(LogPath) ? File.ReadAllLines(LogPath).Length : 0;
-                File.AppendAllText(LogPath, entry + Environment.NewLine);
-                _lineCount++;
+                File.AppendAllText(LogPath, text);
+                _lineCount += lines;
                 if (_lineCount > MaxEntries) Trim();
             }
         }

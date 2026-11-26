@@ -563,6 +563,7 @@ internal sealed class AntSelect : AntPanel
         if (Height != Inner.Height) Height = Inner.Height;
     }
 
+#if DEBUG
     /// <summary>调试入口：展开下拉并返回第 index 项的屏幕中心点（取不到返回 null）。</summary>
     internal Point? DebugOpenAndLocateItem(int index)
     {
@@ -591,6 +592,7 @@ internal sealed class AntSelect : AntPanel
             Marshal.FreeHGlobal(buf);
         }
     }
+#endif
 
     /// <summary>
     /// 下拉列表窗口每次展开时可能重建/复用它，这里按 GetComboBoxInfo 拿到真实句柄挂钩子。

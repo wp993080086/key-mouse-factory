@@ -20,10 +20,6 @@ internal sealed class TypingGuard
     private volatile int _gamePid;       // 锁定的游戏进程 PID，0 = 尚未锁定
     private bool _lastLost;              // 上一次焦点是否离开，用于识别"切回游戏"边沿
 
-    public bool Enabled => _enabled;
-    public bool ChatTyping => _chatTyping;
-    public int GamePid => _gamePid;
-
     /// <summary>由界面在开启连按前设置：总开关 + 聊天键 VK。</summary>
     public void Configure(bool enabled, int chatVk)
     {
@@ -65,7 +61,12 @@ internal sealed class TypingGuard
     public void Refresh()
     {
         if (!_enabled) return;
-        uint pid = NativeMethods.ForegroundPid();
+        ApplyForegroundPid(NativeMethods.ForegroundPid());
+    }
+
+    /// <summary>用已采样的一次前台 PID 完成延迟锁定与切回复位，避免同一次按键重复查询。</summary>
+    private void ApplyForegroundPid(uint pid)
+    {
         if (pid == 0 || pid == (uint)_selfPid) return; // 桌面/本程序：维持上次判定
         if (_gamePid == 0)
         {
@@ -95,14 +96,16 @@ internal sealed class TypingGuard
     /// </summary>
     public bool ObserveDown(int vk)
     {
-        Refresh();
         if (!_enabled) return false;
-        if (FocusLost()) return false;              // 焦点在游戏外：游戏外打字，别动打字态
+        uint pid = NativeMethods.ForegroundPid(); // 一次采样：补足锁定 + 判失焦共用
+        ApplyForegroundPid(pid);
+        // 与原 FocusLost() 同语义：未锁定到游戏、或焦点在桌面时不判失焦
+        if (pid != 0 && _gamePid != 0 && pid != (uint)_gamePid) return false;
         if (vk != _chatVk) return false;
         if (_chatKeyDown) return true;              // 长按自动重复：只记一次
         _chatKeyDown = true;
         _chatTyping = !_chatTyping;
-        Logger.Info($"打字态切换：{(_chatTyping ? "进入（连按暂停）" : "退出（连按恢复）")}");
+        Logger.InfoAsync($"打字态切换：{(_chatTyping ? "进入（连按暂停）" : "退出（连按恢复）")}");
         return true;
     }
 

@@ -289,7 +289,7 @@ internal sealed class MacroPlayer : IDisposable
 
     /// <summary>
     /// 轮与轮之间的间隔等待：长间隔里把 1ms 系统计时精度还回去（只剩系统默认的 ~15.6ms 定时器），
-    /// 临门 30ms 再提回来精确定点。否则默认粒度会让每轮多出十几毫秒，
+    /// 临门 50ms 再提回来精确定点。否则默认粒度会让每轮多出十几毫秒，
     /// 定时模式下几千轮累积下来总时长会明显偏长。
     /// </summary>
     private void WaitGap(int targetMs)
