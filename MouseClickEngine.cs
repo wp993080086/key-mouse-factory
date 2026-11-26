@@ -11,7 +11,7 @@ namespace KeyMouseFactory;
 /// 松手停止行触发时拦截原生点击（吞掉按下与配对的抬起），由引擎统一注入，避免重复点击。
 /// 工作线程与键盘同构：按到期时刻等待，没人按键时阻塞在事件上零唤醒。
 /// </summary>
-internal sealed class MouseClickEngine
+internal sealed class MouseClickEngine : IDisposable
 {
     /// <summary>触发方式：Infinite=物理按住才连点、松手即停；Auto=开启后自动点击，不需要按住。</summary>
     public enum StopMode { Infinite, Auto }
@@ -139,6 +139,12 @@ internal sealed class MouseClickEngine
 #if DEBUG
         if (DryRun) EngineProbe.Report(1, "连点");
 #endif
+    }
+
+    public void Dispose()
+    {
+        Stop();
+        _wake.Dispose();
     }
 
     private void WorkerLoop()

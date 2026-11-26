@@ -213,12 +213,13 @@ public partial class MainForm : Form
             Application.RemoveMessageFilter(_wheelFilter);
             _tabAnimTimer.Dispose();
             _playTimer.Dispose();
+            _saveTimer.Dispose();
             _fontBold.Dispose();
             _tabFont.Dispose();
             _keyTip.Dispose();
-            _engine.Stop();
-            _mouseEngine.Stop();
-            _player?.Stop();
+            _engine.Dispose();
+            _mouseEngine.Dispose();
+            _player?.Dispose();
             ClosePlayOverlay();
             CloseEngineOverlay();
             UnregisterHotkeys();

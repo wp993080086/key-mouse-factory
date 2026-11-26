@@ -11,7 +11,7 @@ namespace KeyMouseFactory;
 /// 模式 A：放行原生按键，叠加模拟连按；模式 B：拦截原生按键，仅程序模拟（默认）。
 /// 工作线程没有「固定节拍」：按每个键的到期时刻等待，没人按键时阻塞在事件上零唤醒。
 /// </summary>
-internal sealed class AutoFireEngine
+internal sealed class AutoFireEngine : IDisposable
 {
     /// <summary>触发方式：Hold=物理按住才连按、松手即停；Auto=启动后自动连按，不需要按住。</summary>
     public enum TriggerMode { Hold, Auto }
@@ -142,6 +142,12 @@ internal sealed class AutoFireEngine
 #if DEBUG
         if (DryRun) EngineProbe.Report(0, "连按");
 #endif
+    }
+
+    public void Dispose()
+    {
+        Stop();
+        _wake.Dispose();
     }
 
     private void WorkerLoop()

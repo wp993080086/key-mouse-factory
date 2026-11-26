@@ -75,7 +75,9 @@ internal sealed class PlayOverlayForm : Form
     {
         base.OnResize(e);
         using var path = RoundedPath(new Rectangle(0, 0, Width, Height), Radius);
+        var old = Region;
         Region = new Region(path);
+        old?.Dispose();
     }
 
     /// <summary>
@@ -103,12 +105,12 @@ internal sealed class PlayOverlayForm : Form
     private void ResizeToContent(bool keepRight)
     {
         int w = _blocked
-            ? PadLeft + DotSize + GapAfterDot + Measure(BlockedText, _small).Width + PadRight
+            ? PadLeft + DotSize + GapAfterDot + Measure(BlockedText, _small) + PadRight
             : PadLeft + DotSize + GapAfterDot
-              + Measure("回放中", _bold).Width
-              + GapMid + Measure(_name, _small).Width
-              + GapSmall + Measure(LoopText(), _small).Width
-              + GapSmall + Measure(ElapsedText(), _small).Width
+              + Measure("回放中", _bold)
+              + GapMid + Measure(_name, _small)
+              + GapSmall + Measure(LoopText(), _small)
+              + GapSmall + Measure(ElapsedText(), _small)
               + PadRight;
 
         w = Math.Max(w, MinWidth);
@@ -128,12 +130,24 @@ internal sealed class PlayOverlayForm : Form
         return $"{(int)t.TotalMinutes:00}:{t.Seconds:00}.{t.Milliseconds / 100}";
     }
 
-    private static Size Measure(string text, Font font) =>
-        TextRenderer.MeasureText(text, font, Size.Empty, MeasFlags);
+    // 文本宽度缓存：OnPaint 每秒约 45 帧、ResizeToContent 每次也测一遍，同样的文本反复量。
+    // 字体与 DPI 在浮窗生命周期内不变，缓存结果安全；上限防止长时间回放时计时文本撑爆缓存。
+    private readonly Dictionary<(string Text, Font Font), int> _widthCache = new();
+    private const int WidthCacheMax = 512;
+
+    private int Measure(string text, Font font)
+    {
+        var key = (text, font);
+        if (_widthCache.TryGetValue(key, out int cached)) return cached;
+        int w = TextRenderer.MeasureText(text, font, Size.Empty, MeasFlags).Width;
+        if (_widthCache.Count >= WidthCacheMax) _widthCache.Clear();
+        _widthCache[key] = w;
+        return w;
+    }
 
     private int DrawSeg(Graphics g, string text, Font font, Color color, int x)
     {
-        int w = Measure(text, font).Width;
+        int w = Measure(text, font);
         TextRenderer.DrawText(g, text, font, new Rectangle(x, 0, w, Height), color, Flags);
         return w;
     }
@@ -185,6 +199,8 @@ internal sealed class PlayOverlayForm : Form
         {
             _bold.Dispose();
             _small.Dispose();
+            Region?.Dispose();
+            Region = null;
         }
         base.Dispose(disposing);
     }

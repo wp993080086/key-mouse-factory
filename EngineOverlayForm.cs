@@ -119,7 +119,9 @@ internal sealed class EngineOverlayForm : Form
     {
         base.OnResize(e);
         using var path = RoundedPath(new Rectangle(0, 0, Width, Height), Radius);
+        var old = Region;
         Region = new Region(path);
+        old?.Dispose();
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -160,6 +162,8 @@ internal sealed class EngineOverlayForm : Form
         {
             _bold.Dispose();
             _small.Dispose();
+            Region?.Dispose();
+            Region = null;
         }
         base.Dispose(disposing);
     }

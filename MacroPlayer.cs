@@ -134,7 +134,11 @@ internal sealed class MacroPlayer : IDisposable
         _running = false;
     }
 
-    public void Dispose() => Stop();
+    public void Dispose()
+    {
+        Stop();
+        _wake.Dispose();
+    }
 
     private void Run()
     {

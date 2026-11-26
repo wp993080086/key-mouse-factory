@@ -23,6 +23,7 @@ internal sealed class RecordOverlayForm : Form
     private bool _blinkOn = true;
     private bool _stopHover;
     private bool _dragging;
+    private int _lastDragTick;     // 拖动节流：整窗移动限到约 60fps
     private Point _dragCursor;
     private Point _dragOrigin;
     private bool _closingSilently;
@@ -74,7 +75,9 @@ internal sealed class RecordOverlayForm : Form
     private void UpdateRegion()
     {
         using var path = RoundedPath(new Rectangle(0, 0, Width, Height), 10);
+        var old = Region;
         Region = new Region(path);
+        old?.Dispose();
     }
 
     private static GraphicsPath RoundedPath(Rectangle r, int radius)
@@ -145,6 +148,15 @@ internal sealed class RecordOverlayForm : Form
             Invalidate();
         }
         if (!_dragging) return;
+        // 移动整窗会触发布局与整窗重绘，MouseMove 每秒上百次太重；限到约 60fps，松手补最终位置
+        int tick = Environment.TickCount;
+        if (_lastDragTick != 0 && tick - _lastDragTick < 16) return;
+        _lastDragTick = tick;
+        MoveToCursor();
+    }
+
+    private void MoveToCursor()
+    {
         var now = Cursor.Position;
         Location = new Point(_dragOrigin.X + (now.X - _dragCursor.X), _dragOrigin.Y + (now.Y - _dragCursor.Y));
     }
@@ -159,6 +171,7 @@ internal sealed class RecordOverlayForm : Form
             return;
         }
         _dragging = true;
+        _lastDragTick = 0; // 首帧立即响应
         _dragCursor = Cursor.Position;
         _dragOrigin = Location;
     }
@@ -168,6 +181,7 @@ internal sealed class RecordOverlayForm : Form
         base.OnMouseUp(e);
         if (!_dragging) return;
         _dragging = false;
+        MoveToCursor();  // 补上节流丢掉的最后一小段
         BoundsMoved?.Invoke();
     }
 
@@ -187,10 +201,20 @@ internal sealed class RecordOverlayForm : Form
     public void CloseSilently()
     {
         _closingSilently = true;
-        _timer.Stop();
-        _timer.Dispose();
         Close();
         Dispose();
-        _small.Dispose();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _timer.Stop();
+            _timer.Dispose();
+            _small.Dispose();
+            Region?.Dispose();
+            Region = null;
+        }
+        base.Dispose(disposing);
     }
 }
