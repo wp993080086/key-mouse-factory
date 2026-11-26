@@ -370,7 +370,7 @@ public partial class MainForm : Form
         try
         {
             var recorder = new MacroRecorder();
-            var overlay = new RecordOverlayForm(recorder);
+            var overlay = new RecordOverlayForm(recorder, _config.RecordHotkey);
             _recorder = recorder;
             _overlay = overlay;
             overlay.StopRequested += StopRecording;
@@ -448,12 +448,12 @@ public partial class MainForm : Form
         bool rec = _recorder != null;
         bool play = _player != null;
 
-        btnRecord.Text = rec ? "■ 停止录制" : "● 开始录制";
+        btnRecord.Text = rec ? $"停止录制 · {_config.RecordHotkey}" : $"开始录制 · {_config.RecordHotkey}";
         btnRecord.Danger = rec;
         btnRecord.Enabled = !play;   // 回放中不能开始录制
         btnRecord.Invalidate();
 
-        btnPlay.Text = play ? "■ 停止回放" : "▶ 开始回放";
+        btnPlay.Text = play ? $"停止回放 · {_config.PlaybackHotkey}" : $"开始回放 · {_config.PlaybackHotkey}";
         btnPlay.Kind = play ? AntButton.AntKind.Primary : AntButton.AntKind.Default;
         btnPlay.Danger = play;
         btnPlay.Enabled = play || (!rec && SelectedProfile() != null); // 未选方案/录制中不可开始

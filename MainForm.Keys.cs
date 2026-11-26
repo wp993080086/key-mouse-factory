@@ -44,6 +44,7 @@ public partial class MainForm : Form
 
         SetKeysUiLocked(true);
         RefreshRunCard();
+        ShowEngineOverlay("连按中", _config.StartHotkey);
 
         Hide();
         string autoDesc = string.Join("、", targets
@@ -105,6 +106,7 @@ public partial class MainForm : Form
     {
         _engine.Stop();
         Logger.Info("关闭连按");
+        CloseEngineOverlay();
         SetKeysUiLocked(false);
         RefreshRunCard();
         // 窗口本就可见 → 只刷新状态，不抢焦点；隐藏时用托盘气泡告知
@@ -118,6 +120,7 @@ public partial class MainForm : Form
         if (IsDisposed) return;
         _engine.Stop();
         Logger.Info("自动连按已完成设定次数，引擎自动关闭");
+        CloseEngineOverlay();
         SetKeysUiLocked(false);
         RefreshRunCard();
         trayIcon.ShowBalloonTip(1600, "键鼠工厂", "自动连按已完成设定次数，已自动关闭。", ToolTipIcon.Info);
@@ -287,11 +290,19 @@ public partial class MainForm : Form
         _rows[^1].TxtKey.Inner.Focus();
     }
 
+    /// <summary>删除行前解除该行的 ToolTip 关联：_keyTip 长寿命，否则会强引用已删除的整棵控件树。</summary>
+    private void ClearRowToolTips(RowControls row)
+    {
+        _keyTip.SetToolTip(row.TxtKey, null);
+        _keyTip.SetToolTip(row.TxtKey.Inner, null);
+    }
+
     private void DeleteRow(RowControls row)
     {
         int idx = _rows.IndexOf(row);
         if (idx < 0) return;
         _rows.RemoveAt(idx);
+        ClearRowToolTips(row);
         pnlContent.Controls.Remove(row.RowPanel);
         row.RowPanel.Dispose();
         RelayoutRows();
@@ -514,7 +525,7 @@ public partial class MainForm : Form
     private static int NormalizeMs(string text)
     {
         if (!int.TryParse(text?.Trim(), out int v) || v <= 0) return MinMs;
-        return ClampMs(v); // 允许 1~5000 任意整数（步进按钮仍按 50 步进）
+        return ClampMs(v); // 允许 50~5000 任意整数（步进按钮仍按 50 步进）
     }
 
     /// <summary>键名文本 → 虚拟键码，映射规则集中在 KeyNames（-1 表示非法）。</summary>

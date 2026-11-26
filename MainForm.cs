@@ -97,6 +97,7 @@ public partial class MainForm : Form
     private AntButton btnMain = null!;      // 唯一主按钮：控制当前 Tab 对应的引擎
     private Label lblTarget = null!;        // "当前控制：连按/鼠标连点" 标识
     private Label lblStatus = null!;
+    private EngineOverlayForm? _engineOverlay;  // 连按/连点期间的右下角状态条（只读、鼠标穿透）
     private AntSelect cboStartKey = null!, cboMode = null!;
     private AntCheckBox chkAntiTyping = null!;   // 防打字干扰开关（按键页底栏）
     private Label lblChatKey = null!;            // "聊天键" 标签
@@ -219,6 +220,7 @@ public partial class MainForm : Form
             _mouseEngine.Stop();
             _player?.Stop();
             ClosePlayOverlay();
+            CloseEngineOverlay();
             UnregisterHotkeys();
             trayIcon.Visible = false;
             trayIcon.Dispose();
@@ -469,7 +471,10 @@ public partial class MainForm : Form
     private void LoadConfigToUi()
     {
         foreach (var r in _rows)
+        {
+            ClearRowToolTips(r);
             r.RowPanel.Dispose();
+        }
         _rows.Clear();
         pnlContent.Controls.Clear();
 
@@ -492,14 +497,14 @@ public partial class MainForm : Form
         txtChatKey.Text = ChatKeyNames.Sanitize(_config.ChatKey);
         ApplyAntiTypingUi();
 
-        // 鼠标连点行：固定左/右/滚轮三行，按 Button 匹配配置
+        // 鼠标连点行：固定左/右/滚轮/X1/X2 五行，按 Button 匹配配置
         var mouseCfg = _config.MouseClicks ?? new List<MouseClickConfig>();
         foreach (var r in _mouseRows)
         {
             var cfg = mouseCfg.FirstOrDefault(m => m.Button == r.Button);
             if (cfg == null)
             {
-                // 旧配置（v1.0.0 无 MouseClicks、v1.1.x 无滚轮行）：按默认"松手停止"初始化，不能跳过
+                // 旧配置（v1.0.0 无 MouseClicks、v1.1.x 无 X1/X2 侧键行）：按默认"松手停止"初始化，不能跳过
                 ApplyMouseStopMode(r, "infinite", 0);
                 continue;
             }
@@ -555,4 +560,36 @@ public partial class MainForm : Form
     }
 
     private void UpdateStatus(string text) => lblStatus.Text = text;
+
+    /// <summary>连按/连点启动后显示右下角浮窗；重复调用只会重建，避免残留。</summary>
+    private void ShowEngineOverlay(string name, string hotkey)
+    {
+        CloseEngineOverlay();
+        try
+        {
+            var overlay = new EngineOverlayForm(name, hotkey);
+            _engineOverlay = overlay;
+            overlay.Show();
+        }
+        catch (Exception ex) { Logger.Error("ShowEngineOverlay", ex); }
+    }
+
+    /// <summary>摘掉连按/连点浮窗：手动停止、自然结束、退出程序都走这里。</summary>
+    private void CloseEngineOverlay()
+    {
+        var overlay = _engineOverlay;
+        _engineOverlay = null;
+        if (overlay == null) return;
+        try { overlay.CloseSilently(); }
+        catch (Exception ex) { Logger.Error("CloseEngineOverlay", ex); }
+    }
+
+    /// <summary>热键变更/自动调整时同步连按、连点浮窗上的提示。</summary>
+    private void RefreshEngineOverlayHotkeys()
+    {
+        if (_engineOverlay == null) return;
+        // 浮窗不记自己是连按还是连点，按当前引擎的 Running 态选对应热键
+        string hotkey = _mouseEngine.Running ? _config.MouseStartHotkey : _config.StartHotkey;
+        _engineOverlay.SetHotkey(hotkey);
+    }
 }

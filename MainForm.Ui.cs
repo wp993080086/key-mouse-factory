@@ -27,7 +27,7 @@ public partial class MainForm : Form
 
             case TabMouse:
                 lblTarget.Text = "当前控制：鼠标连点";
-                btnMain.Text = _mouseEngine.Running ? "关闭连点" : "开启连点";
+                btnMain.Text = _mouseEngine.Running ? $"关闭连点 · {_config.MouseStartHotkey}" : $"开启连点 · {_config.MouseStartHotkey}";
                 btnMain.Width = 366; // 鼠标页无附加控件，按钮铺满（保持原样）
                 btnMain.Enabled = true;
                 btnMain.Danger = _mouseEngine.Running;
@@ -35,7 +35,7 @@ public partial class MainForm : Form
 
             default: // TabKeys
                 lblTarget.Text = "当前控制：连按";
-                btnMain.Text = _engine.Running ? "关闭连按" : "开启连按";
+                btnMain.Text = _engine.Running ? $"关闭连按 · {_config.StartHotkey}" : $"开启连按 · {_config.StartHotkey}";
                 btnMain.Width = 236; // 缩窄，右侧留给防打字干扰控件
                 btnMain.Enabled = true;
                 btnMain.Danger = _engine.Running;
@@ -49,7 +49,7 @@ public partial class MainForm : Form
 
     private void BuildUi()
     {
-        // 主区域（Tab + 配置页）：三个区域（主区/启动区/设置区）以 2px 深色边框分隔，无留白卡片
+        // 主区域（Tab + 配置页）：三个区域（主区/启动区/设置区）以 2px 浅灰线分隔，无外框、无留白卡片
         var pnlMain = new AntPanel { Location = new Point(2, 2), Size = new Size(636, 302), BackColor = Color.Transparent };
 
         // 自定义 Tab 头（AntD 风格：文字 + 蓝色下划线，下边框 1px 样式不变）
@@ -63,7 +63,7 @@ public partial class MainForm : Form
         var lblVersion = new Label
         {
             Name = "lblVersionAbout",
-            // ProductVersion 形如 "1.1.0+<commit>"，只取主版本号
+            // ProductVersion 形如 "x.y.z+<commit>"，只取主版本号
             Text = $"v{Application.ProductVersion.Split('+')[0]} · 鹏多多",
             AutoSize = true,
             ForeColor = AntStyle.TextTertiary,
@@ -113,7 +113,7 @@ public partial class MainForm : Form
         btnMain = new AntButton
         {
             Kind = AntButton.AntKind.Primary,
-            Text = "开启连按",
+            Text = $"开启连按 · {_config.StartHotkey}",
             Location = new Point(14, 6),
             Size = new Size(RunBtnSingleW, 40),
             Font = AntStyle.GetFont(10f)
@@ -121,7 +121,7 @@ public partial class MainForm : Form
         btnRecord = new AntButton
         {
             Kind = AntButton.AntKind.Primary,
-            Text = "● 开始录制",
+            Text = $"开始录制 · {_config.RecordHotkey}",
             Location = new Point(14, 6),
             Size = new Size(RunBtnW, 40),
             Font = AntStyle.GetFont(10f),
@@ -131,7 +131,7 @@ public partial class MainForm : Form
         btnPlay = new AntButton
         {
             Kind = AntButton.AntKind.Default,
-            Text = "▶ 开始回放",
+            Text = $"开始回放 · {_config.PlaybackHotkey}",
             Location = new Point(14 + RunBtnW + RunBtnGap, 6),
             Size = new Size(RunBtnW, 40),
             Font = AntStyle.GetFont(10f),
@@ -232,6 +232,8 @@ public partial class MainForm : Form
             SaveConfig();
             RegisterHotkeys();
             RefreshHotkeyAvailability(); // 值变了，另一页的置灰跟着变
+            RefreshRunCard();            // 按钮文案里的热键跟着更新
+            RefreshEngineOverlayHotkeys(); // 连按/连点浮窗上的热键跟着更新
         };
         cboMode.SelectedIndexChanged += (_, _) =>
         {
@@ -246,6 +248,8 @@ public partial class MainForm : Form
             SaveConfig();
             RegisterHotkeys();
             RefreshHotkeyAvailability();
+            RefreshRunCard();            // 回放按钮文案里的热键跟着更新
+            RefreshEngineOverlayHotkeys(); // 连按/连点浮窗上的热键跟着更新
         };
 
         // 模式说明（跟着下拉框当前选项变）

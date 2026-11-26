@@ -370,14 +370,14 @@ public partial class MainForm : Form
             {
                 case 1: // 模拟 DoStart 的 UI 更新（不隐藏窗口）
                     SetKeysUiLocked(true);
-                    btnMain.Text = "关闭连按";
+                    btnMain.Text = $"关闭连按 · {_config.StartHotkey}";
                     btnMain.Danger = true;
                     UpdateStatus("运行中 · 测试");
                     break;
                 case 2: // 确认运行态已上屏，随后模拟 DoStop 的 UI 更新（窗口可见 = 用户反馈的场景）
                     CaptureWindow(prefix + "_running.png");
                     SetKeysUiLocked(false);
-                    btnMain.Text = "开启连按";
+                    btnMain.Text = $"开启连按 · {_config.StartHotkey}";
                     btnMain.Danger = false;
                     UpdateStatus("未开启");
                     break;

@@ -43,6 +43,7 @@ public partial class MainForm : Form
 
         SetMouseUiLocked(true);
         RefreshRunCard();
+        ShowEngineOverlay("连点中", _config.MouseStartHotkey);
 
         Hide();
         string desc = string.Join("、", targets.Select(t =>
@@ -56,6 +57,7 @@ public partial class MainForm : Form
     {
         _mouseEngine.Stop();
         Logger.Info("关闭鼠标连点");
+        CloseEngineOverlay();
         SetMouseUiLocked(false);
         RefreshRunCard();
         if (Visible) return;
@@ -68,6 +70,7 @@ public partial class MainForm : Form
         if (IsDisposed) return;
         _mouseEngine.Stop();
         Logger.Info("自动点击已完成设定次数，引擎自动关闭");
+        CloseEngineOverlay();
         SetMouseUiLocked(false);
         RefreshRunCard();
         trayIcon.ShowBalloonTip(1600, "鼠标连点", "自动点击已完成设定次数，已自动关闭。", ToolTipIcon.Info);

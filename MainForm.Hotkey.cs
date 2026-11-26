@@ -77,6 +77,9 @@ public partial class MainForm : Form
             trayIcon.ShowBalloonTip(3000, "热键已自动调整", desc + "，已写回配置。", ToolTipIcon.Info);
             SyncHotkeyUI(); // 下拉框跟着新键走，其它槽位的置灰也要重算
             SaveConfig();   // 走正常保存链路，把换键结果落到 config.json
+            RefreshRunCard();              // 按钮文案里的热键跟着更新
+            _overlay?.SetHotkey(_config.RecordHotkey); // 录制浮窗上的停止热键跟着更新
+            RefreshEngineOverlayHotkeys(); // 连按/连点浮窗上的热键跟着更新
         }
     }
 
@@ -90,8 +93,8 @@ public partial class MainForm : Form
     }
 
     /// <summary>
-    /// 设置卡片跟随当前 Tab：按键页=连按热键 + 连按模式 + 键盘提示；
-    /// 鼠标页=连点热键 + 鼠标提示（无模式概念）；录制页=录制热键 + 录制提示。
+    /// 设置卡片跟随当前 Tab：按键页=连按热键 + 连按模式 + 底部说明行；
+    /// 鼠标页=连点热键（无模式、无说明行）；录制页=录制热键 + 回放热键。
     /// </summary>
     private void SyncHotkeyUI()
     {

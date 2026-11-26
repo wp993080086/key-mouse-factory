@@ -4,17 +4,21 @@ namespace KeyMouseFactory;
 
 /// <summary>
 /// 录制状态悬浮条：主窗口收进托盘后，屏幕上留一条小的置顶提示。
-/// 显示红点（闪烁）/「录制中」/ 计时 / ■ 停止；可拖动，右上角位置默认贴工作区右下角。
+/// 显示红点（闪烁）/「录制中」/ 计时 / 停止热键 / ■ 停止；可拖动，右上角位置默认贴工作区右下角。
 /// 悬浮条自身的矩形会作为「排除区域」交给录制器，所以拖它、点■都不会进录制。
 /// </summary>
 internal sealed class RecordOverlayForm : Form
 {
     private const int DotSize = 8;
-    private static readonly Rectangle StopRect = new(156, 11, 22, 22);
+    private static readonly Rectangle StopRect = new(206, 11, 22, 22);
     private static readonly Color RecordRed = Color.FromArgb(255, 77, 79);
     private static readonly Color RecordRedBg = Color.FromArgb(255, 241, 240);
+    private const TextFormatFlags Flags =
+        TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
 
     private readonly MacroRecorder _recorder;
+    private readonly Font _small = new(AntStyle.FontName, 8f);
+    private string _hotkey;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 200 };
     private bool _blinkOn = true;
     private bool _stopHover;
@@ -29,9 +33,10 @@ internal sealed class RecordOverlayForm : Form
     /// <summary>拖动结束后触发，调用方据此刷新排除区域。</summary>
     public event Action? BoundsMoved;
 
-    public RecordOverlayForm(MacroRecorder recorder)
+    public RecordOverlayForm(MacroRecorder recorder, string stopHotkey)
     {
         _recorder = recorder;
+        _hotkey = string.IsNullOrWhiteSpace(stopHotkey) ? "" : stopHotkey.Trim();
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
 
@@ -40,7 +45,7 @@ internal sealed class RecordOverlayForm : Form
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         BackColor = Color.White;
-        ClientSize = new Size(200, 44);
+        ClientSize = new Size(240, 44);
 
         var work = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1920, 1080);
         Location = new Point(work.Right - Width - 24, work.Bottom - Height - 24);
@@ -48,6 +53,13 @@ internal sealed class RecordOverlayForm : Form
         UpdateRegion();
         _timer.Tick += (_, _) => OnTickInternal();
         _timer.Start();
+    }
+
+    /// <summary>热键被改/被占用自动调整时同步浮窗上的提示。</summary>
+    public void SetHotkey(string hotkey)
+    {
+        _hotkey = string.IsNullOrWhiteSpace(hotkey) ? "" : hotkey.Trim();
+        Invalidate();
     }
 
     /// <summary>整块矩形（外扩在录制器侧做）用于排除录制。</summary>
@@ -108,8 +120,13 @@ internal sealed class RecordOverlayForm : Form
             TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
 
         TextRenderer.DrawText(g, FormatElapsed(_recorder.ElapsedMs), boldFont,
-            new Rectangle(86, 0, 60, Height), AntStyle.TextPri,
+            new Rectangle(86, 0, 56, Height), AntStyle.TextPri,
             TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+
+        // 停止热键提示（按 F9 停止）；热键可能因冲突被自动调整，显示的是当前生效值
+        if (_hotkey.Length > 0)
+            TextRenderer.DrawText(g, $"按 {_hotkey} 停止", _small,
+                new Rectangle(144, 0, 58, Height), AntStyle.TextTertiary, Flags);
 
         // ■ 停止
         AntStyle.FillRounded(g, _stopHover ? RecordRed : RecordRedBg, StopRect, 5);
@@ -174,5 +191,6 @@ internal sealed class RecordOverlayForm : Form
         _timer.Dispose();
         Close();
         Dispose();
+        _small.Dispose();
     }
 }
