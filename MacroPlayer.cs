@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 namespace KeyMouseFactory;
 
@@ -13,7 +12,7 @@ internal enum PlayMode { Count, Infinite, Duration }
 /// 几个刻意为之的细节：
 /// - 定位用 MOUSEEVENTF_ABSOLUTE + VIRTUALDESK 归一化（不用 SetCursorPos），
 ///   多屏含负坐标、125% 缩放下都与录制时的物理像素一致。
-/// - 相邻两次移动间隔 &gt;32ms 且位移 &gt;4px 时按 16ms 步长插值：游戏按帧轮询光标，
+/// - 相邻两次移动间隔 ≥32ms 且位移 ≥4px 时按 16ms 步长插值：游戏按帧轮询光标，
 ///   直接瞬移可能整段跳过，插值后至少每帧有一个位置。
 /// - 按下/抬起间隔 &lt;20ms 时补到 20ms（与连按引擎同一个下限结论：一帧 60fps≈16.7ms）。
 /// - 轮与轮之间按「回放间隔」等待（默认 1 秒，可设 0 = 轮尾直接接轮头）。
@@ -26,7 +25,7 @@ internal sealed class MacroPlayer : IDisposable
     public const int DefaultGapSec = 1;    // 回放间隔默认 1 秒
     public const int MaxGapSec = 999999;   // 回放间隔上限（秒，约 11.5 天）
     private const int MinHoldMs = 20;     // 按下保持下限
-    private const int InterpGapMs = 32;   // 相邻移动间隔超过它才插值
+    private const int InterpGapMs = 32;   // 相邻移动间隔 ≥ 它才插值（边界值也插）
     private const int InterpStepMs = 16;  // 插值步长（对齐 60fps 轮询）
     private const int InterpMinPx2 = 16;  // 位移平方（4px）：太小不动也没必要插
     private const int WaitFineWindowMs = 50; // 剩余时间超过它先粗等，把最后 50ms 留给小步
@@ -43,8 +42,7 @@ internal sealed class MacroPlayer : IDisposable
     private readonly object _sync = new();
     private readonly HashSet<int> _pressed = new(); // 当前处于按下状态的鼠标键（VK）
     private readonly AutoResetEvent _wake = new(false); // Stop 时叫醒睡在等待上的工作线程
-    private readonly object _periodSync = new();
-    private bool _periodRaised; // 1ms 计时精度是否已申请（timeBeginPeriod/timeEndPeriod 必须成对）
+    private readonly PeriodGuard _period = new();       // 1ms 计时精度：申请/归还严格配对，三个引擎共用
     private Thread? _worker;
     private volatile bool _stop;
     private volatile bool _running;
@@ -79,14 +77,8 @@ internal sealed class MacroPlayer : IDisposable
 
     public string ProfileName => _profile?.Name ?? "";
 
-    /// <summary>回放自然结束（跑完次数 / 定时到点）时在工作线程上触发；手动 Stop 不触发语义上的"完成"。</summary>
+    /// <summary>回放结束（自然结束或手动 Stop）时在工作线程上触发；调用方靠是否已把 _player 置空区分。</summary>
     public event Action? Finished;
-
-    [DllImport("winmm.dll")]
-    private static extern uint timeBeginPeriod(uint ms);
-
-    [DllImport("winmm.dll")]
-    private static extern uint timeEndPeriod(uint ms);
 
     public void Start(RecordProfile profile, PlayMode mode, int value, int gapSec = DefaultGapSec,
                       double speed = Limits.PlaySpeedDefault)
@@ -148,7 +140,7 @@ internal sealed class MacroPlayer : IDisposable
 
         try
         {
-            SetPeriod(true); // 真要按时间轴放点，需要 1ms 精度
+            _period.Set(true); // 真要按时间轴放点，需要 1ms 精度
 
             while (!_stop)
             {
@@ -182,7 +174,7 @@ internal sealed class MacroPlayer : IDisposable
         {
             ReleaseAll();
             _running = false;
-            SetPeriod(false);
+            _period.Set(false);
             if (DryRun) Logger.Info($"[dry] 回放结束：{profile.Name} {loops} 轮 {_sent} 点 {_sw.ElapsedMilliseconds}ms");
 #if DEBUG
             if (DryRun && _late.Count > 0) LogLateStats();
@@ -228,6 +220,8 @@ internal sealed class MacroPlayer : IDisposable
                             {
                                 if (_stop) return;
                                 if (_mode == PlayMode.Duration && _sw.ElapsedMilliseconds >= totalMs) return;
+                                // 时刻按 16ms 网格推进、位置按段数等分；dt 非 16 整数倍时两者不完全同步，
+                                // 但保证每个 60fps 帧附近至少有一个插值点，肉眼看不到瞬移即可。
                                 WaitUntil(loopStart + ScaleTime(p.T + s * InterpStepMs));
                                 MoveTo(p.X + dx * s / steps, p.Y + dy * s / steps, ref cx, ref cy);
                             }
@@ -299,22 +293,11 @@ internal sealed class MacroPlayer : IDisposable
     private void WaitGap(int targetMs)
     {
         if (_gapMs <= 0) return;   // 0 = 轮尾直接接轮头，没有间隔可等
-        SetPeriod(false);
+        _period.Set(false);
         int coarse = targetMs - WaitFineWindowMs - (int)_sw.ElapsedMilliseconds;
         if (coarse > 0) _wake.WaitOne(coarse);
-        SetPeriod(true);
+        _period.Set(true);
         WaitUntil(targetMs);
-    }
-
-    /// <summary>提/还系统计时精度（1ms）。加锁只为防 Stop 与工作线程同时改（Join 超时的极端情况）。</summary>
-    private void SetPeriod(bool on)
-    {
-        lock (_periodSync)
-        {
-            if (_periodRaised == on) return;
-            if (on) timeBeginPeriod(1); else timeEndPeriod(1);
-            _periodRaised = on;
-        }
     }
 
     private void MoveTo(int x, int y, ref int cx, ref int cy)

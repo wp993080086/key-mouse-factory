@@ -7,17 +7,13 @@ namespace KeyMouseFactory;
 /// 显示红点（闪烁）/「录制中」/ 计时 / 停止热键 / ■ 停止；可拖动，右上角位置默认贴工作区右下角。
 /// 悬浮条自身的矩形会作为「排除区域」交给录制器，所以拖它、点■都不会进录制。
 /// </summary>
-internal sealed class RecordOverlayForm : Form
+internal sealed class RecordOverlayForm : OverlayBase
 {
-    private const int DotSize = 8;
     private static readonly Rectangle StopRect = new(206, 11, 22, 22);
     private static readonly Color RecordRed = Color.FromArgb(255, 77, 79);
     private static readonly Color RecordRedBg = Color.FromArgb(255, 241, 240);
-    private const TextFormatFlags Flags =
-        TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
 
     private readonly MacroRecorder _recorder;
-    private readonly Font _small = new(AntStyle.FontName, 8f);
     private string _hotkey;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 200 };
     private bool _blinkOn = true;
@@ -34,27 +30,20 @@ internal sealed class RecordOverlayForm : Form
     /// <summary>拖动结束后触发，调用方据此刷新排除区域。</summary>
     public event Action? BoundsMoved;
 
-    public RecordOverlayForm(MacroRecorder recorder, string stopHotkey)
+    public RecordOverlayForm(MacroRecorder recorder, string stopHotkey) : base(withBoldFont: false)
     {
         _recorder = recorder;
         _hotkey = string.IsNullOrWhiteSpace(stopHotkey) ? "" : stopHotkey.Trim();
-        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
-                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-
-        FormBorderStyle = FormBorderStyle.None;
-        ShowInTaskbar = false;
-        TopMost = true;
-        StartPosition = FormStartPosition.Manual;
-        BackColor = Color.White;
         ClientSize = new Size(240, 44);
-
-        var work = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1920, 1080);
-        Location = new Point(work.Right - Width - 24, work.Bottom - Height - 24);
+        PlaceBottomRight();
 
         UpdateRegion();
         _timer.Tick += (_, _) => OnTickInternal();
         _timer.Start();
     }
+
+    /// <summary>录制条要能点■停止、能拖动，所以不继承只读浮条的鼠标穿透。</summary>
+    protected override bool MouseTransparent => false;
 
     /// <summary>热键被改/被占用自动调整时同步浮窗上的提示。</summary>
     public void SetHotkey(string hotkey)
@@ -66,43 +55,11 @@ internal sealed class RecordOverlayForm : Form
     /// <summary>整块矩形（外扩在录制器侧做）用于排除录制。</summary>
     public Rectangle ExcludeBounds => new(Left, Top, Width, Height);
 
-    protected override void OnResize(EventArgs e)
-    {
-        base.OnResize(e);
-        UpdateRegion();
-    }
-
-    private void UpdateRegion()
-    {
-        using var path = RoundedPath(new Rectangle(0, 0, Width, Height), 10);
-        var old = Region;
-        Region = new Region(path);
-        old?.Dispose();
-    }
-
-    private static GraphicsPath RoundedPath(Rectangle r, int radius)
-    {
-        int d = radius * 2;
-        var path = new GraphicsPath();
-        path.AddArc(r.X, r.Y, d, d, 180, 90);
-        path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
-        path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-        path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
-        path.CloseFigure();
-        return path;
-    }
-
     private void OnTickInternal()
     {
         _blinkOn = !_blinkOn;
         Invalidate();
         if (_recorder.LimitReached) StopRequested?.Invoke();
-    }
-
-    private static string FormatElapsed(long ms)
-    {
-        var t = TimeSpan.FromMilliseconds(ms);
-        return $"{(int)t.TotalMinutes:00}:{t.Seconds:00}.{t.Milliseconds / 100}";
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -114,10 +71,11 @@ internal sealed class RecordOverlayForm : Form
         AntStyle.FillRounded(g, Color.White, all, 10);
         AntStyle.DrawRounded(g, Color.FromArgb(229, 230, 235), all, 10);
 
-        // 红点（500ms 明暗交替）
+        // 红点（每 200ms 翻转一次明暗，完整周期 400ms）
         using (var dot = new SolidBrush(_blinkOn ? RecordRed : Color.FromArgb(255, 163, 158)))
             g.FillEllipse(dot, 14, (Height - DotSize) / 2, DotSize, DotSize);
 
+        // GetFont 返回进程级缓存的共享字体，禁止 Dispose（与基类独占创建并释放的 Font 不同）
         var boldFont = AntStyle.GetFont(9f, FontStyle.Bold);
         TextRenderer.DrawText(g, "录制中", boldFont, new Rectangle(30, 0, 60, Height), RecordRed,
             TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
@@ -128,7 +86,7 @@ internal sealed class RecordOverlayForm : Form
 
         // 停止热键提示（按 F9 停止）；热键可能因冲突被自动调整，显示的是当前生效值
         if (_hotkey.Length > 0)
-            TextRenderer.DrawText(g, $"按 {_hotkey} 停止", _small,
+            TextRenderer.DrawText(g, $"按 {_hotkey} 停止", SmallFont,
                 new Rectangle(144, 0, 58, Height), AntStyle.TextTertiary, Flags);
 
         // ■ 停止
@@ -211,9 +169,7 @@ internal sealed class RecordOverlayForm : Form
         {
             _timer.Stop();
             _timer.Dispose();
-            _small.Dispose();
-            Region?.Dispose();
-            Region = null;
+            // 字体与 Region 由基类 OverlayBase 统一释放
         }
         base.Dispose(disposing);
     }

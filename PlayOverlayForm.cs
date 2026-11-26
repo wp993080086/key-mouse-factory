@@ -10,24 +10,11 @@ namespace KeyMouseFactory;
 /// 回放时鼠标是程序按轨迹注入的，浮条若可点击，轨迹正好经过这里就会被浮条吃掉一次点击，
 /// 命中按钮甚至会误停回放；所以这里只做展示——停止请按热键或用托盘菜单。
 /// </summary>
-internal sealed class PlayOverlayForm : Form
+internal sealed class PlayOverlayForm : OverlayBase
 {
-    private const int DotSize = 8;
-    private const int PadLeft = 14;
-    private const int PadRight = 14;
-    private const int GapAfterDot = 6;
     private const int GapMid = 12;
     private const int GapSmall = 8;
-    private const int Radius = 10;
-    private const int MinWidth = 168;
     private const string BlockedText = "注入被拦截 · 请以管理员身份运行";
-    private const TextFormatFlags Flags =
-        TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
-    private const TextFormatFlags MeasFlags =
-        TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
-
-    private readonly Font _bold = new(AntStyle.FontName, 9f, FontStyle.Bold);
-    private readonly Font _small = new(AntStyle.FontName, 8f);
     private readonly string _name;
     private readonly int _total;        // 总次数，0 = 无限循环（不显示分母）
     private int _loop = 1;
@@ -35,50 +22,17 @@ internal sealed class PlayOverlayForm : Form
     private bool _blocked;
     private bool _blinkOn = true;
 
-    public PlayOverlayForm(string profileName, int total)
+    public PlayOverlayForm(string profileName, int total) : base(withBoldFont: true)
     {
         _name = string.IsNullOrWhiteSpace(profileName) ? "方案" : profileName.Trim();
         _total = Math.Max(0, total);
 
-        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
-                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-
-        FormBorderStyle = FormBorderStyle.None;
-        ShowInTaskbar = false;
-        TopMost = true;
-        StartPosition = FormStartPosition.Manual;
-        BackColor = Color.White;
-        Height = 44;
-
         ResizeToContent(keepRight: false);
-
-        // 构造时就把位置定好：靠 OnShown 定位会让首帧先在 (0,0) 闪一下再跳过去
-        var work = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1920, 1080);
-        Location = new Point(work.Right - Width - 24, work.Bottom - Height - 24);
+        PlaceBottomRight();
     }
 
-    /// <summary>只做提示，绝不能把焦点从游戏手里抢走。</summary>
-    protected override bool ShowWithoutActivation => true;
-
-    protected override CreateParams CreateParams
-    {
-        get
-        {
-            var cp = base.CreateParams;
-            // 穿透 + 不进 Alt+Tab + 不抢焦点
-            cp.ExStyle |= NativeMethods.WS_EX_TRANSPARENT | NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE;
-            return cp;
-        }
-    }
-
-    protected override void OnResize(EventArgs e)
-    {
-        base.OnResize(e);
-        using var path = RoundedPath(new Rectangle(0, 0, Width, Height), Radius);
-        var old = Region;
-        Region = new Region(path);
-        old?.Dispose();
-    }
+    /// <summary>回放时鼠标由程序按轨迹注入，浮条必须穿透，否则会吞掉一次点击甚至误停回放。</summary>
+    protected override bool MouseTransparent => true;
 
     /// <summary>
     /// 同步一次进度（由主窗口 200ms 定时器驱动）：当前第几次、已用时、注入是否被拦截。
@@ -105,12 +59,12 @@ internal sealed class PlayOverlayForm : Form
     private void ResizeToContent(bool keepRight)
     {
         int w = _blocked
-            ? PadLeft + DotSize + GapAfterDot + Measure(BlockedText, _small) + PadRight
+            ? PadLeft + DotSize + GapAfterDot + Measure(BlockedText, SmallFont) + PadRight
             : PadLeft + DotSize + GapAfterDot
-              + Measure("回放中", _bold)
-              + GapMid + Measure(_name, _small)
-              + GapSmall + Measure(LoopText(), _small)
-              + GapSmall + Measure(ElapsedText(), _small)
+              + Measure("回放中", BoldFont!)
+              + GapMid + Measure(_name, SmallFont)
+              + GapSmall + Measure(LoopText(), SmallFont)
+              + GapSmall + Measure(ElapsedText(), SmallFont)
               + PadRight;
 
         w = Math.Max(w, MinWidth);
@@ -123,12 +77,6 @@ internal sealed class PlayOverlayForm : Form
     private string LoopText() => PlayText.Loop(_loop, _total);
 
     private string ElapsedText() => FormatElapsed(_elapsedMs);
-
-    private static string FormatElapsed(long ms)
-    {
-        var t = TimeSpan.FromMilliseconds(ms);
-        return $"{(int)t.TotalMinutes:00}:{t.Seconds:00}.{t.Milliseconds / 100}";
-    }
 
     // 文本宽度缓存：OnPaint 每秒约 45 帧、ResizeToContent 每次也测一遍，同样的文本反复量。
     // 字体与 DPI 在浮窗生命周期内不变，缓存结果安全；上限防止长时间回放时计时文本撑爆缓存。
@@ -171,37 +119,14 @@ internal sealed class PlayOverlayForm : Form
 
         if (_blocked)
         {
-            DrawSeg(g, BlockedText, _small, AntStyle.Danger, x);
+            DrawSeg(g, BlockedText, SmallFont, AntStyle.Danger, x);
             return;
         }
 
-        x += DrawSeg(g, "回放中", _bold, AntStyle.Primary, x) + GapMid;
-        x += DrawSeg(g, _name, _small, AntStyle.TextPri, x) + GapSmall;
-        x += DrawSeg(g, LoopText(), _small, AntStyle.TextTertiary, x) + GapSmall;
-        DrawSeg(g, ElapsedText(), _small, AntStyle.TextTertiary, x);
+        x += DrawSeg(g, "回放中", BoldFont!, AntStyle.Primary, x) + GapMid;
+        x += DrawSeg(g, _name, SmallFont, AntStyle.TextPri, x) + GapSmall;
+        x += DrawSeg(g, LoopText(), SmallFont, AntStyle.TextTertiary, x) + GapSmall;
+        DrawSeg(g, ElapsedText(), SmallFont, AntStyle.TextTertiary, x);
     }
 
-    private static GraphicsPath RoundedPath(Rectangle r, int radius)
-    {
-        int d = radius * 2;
-        var path = new GraphicsPath();
-        path.AddArc(r.X, r.Y, d, d, 180, 90);
-        path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
-        path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-        path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
-        path.CloseFigure();
-        return path;
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            _bold.Dispose();
-            _small.Dispose();
-            Region?.Dispose();
-            Region = null;
-        }
-        base.Dispose(disposing);
-    }
 }

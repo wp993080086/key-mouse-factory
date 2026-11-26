@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 namespace KeyMouseFactory;
 
@@ -38,8 +37,7 @@ internal sealed class MouseClickEngine : IDisposable
     private Thread? _worker;
     private volatile bool _stop;
     private readonly bool[] _swallowUp = new bool[7]; // 按 VK 键码索引（1/2/4/5/6）：按下被拦截时，配对的抬起也要拦截
-    private readonly object _periodSync = new();
-    private bool _periodRaised;   // timeBeginPeriod/timeEndPeriod 必须成对：重复 Stop 不能再还给系统一次
+    private readonly PeriodGuard _period = new();     // 1ms 计时精度：申请/归还严格配对，三个引擎共用
 
     public bool Running { get; private set; }
 
@@ -73,12 +71,6 @@ internal sealed class MouseClickEngine : IDisposable
         }
         if (!NativeInput.SendMouseButton(button, up)) MarkBlocked();
     }
-
-    [DllImport("winmm.dll")]
-    private static extern uint timeBeginPeriod(uint ms);
-
-    [DllImport("winmm.dll")]
-    private static extern uint timeEndPeriod(uint ms);
 
     public void Start(List<MouseTarget> targets)
     {
@@ -120,7 +112,7 @@ internal sealed class MouseClickEngine : IDisposable
         try { _worker?.Join(1000); } catch { /* 线程可能尚未启动 */ }
         _worker = null;
         _sw.Stop();
-        SetPeriod(false);
+        _period.Set(false);
         // 释放仍处于"模拟按下"状态的鼠标键，避免卡键
         foreach (var t in _tasks)
         {
@@ -230,7 +222,7 @@ internal sealed class MouseClickEngine : IDisposable
 
         bool idle = earliest == long.MaxValue;
         // 只有真要连点时才需要 1ms 精度（按下/抬起各 20ms 靠它对齐帧），空闲时还给系统
-        SetPeriod(!idle);
+        _period.Set(!idle);
         if (idle)
         {
             _wake.WaitOne();
@@ -239,20 +231,10 @@ internal sealed class MouseClickEngine : IDisposable
 
         long left = earliest - now;
         if (left <= 0) return; // 已经到期，直接回循环处理，不用睡
+        // 向上取整避免整除得 0 后忙等；上限 1000ms 保证周期性重算到期表（Stop 另靠 _wake 叫醒）。
         int ms = (int)Math.Min((left * 1000 + Stopwatch.Frequency - 1) / Stopwatch.Frequency, 1000);
         if (ms <= 0) return;
         _wake.WaitOne(ms);
-    }
-
-    /// <summary>提/还系统计时精度（1ms）。加锁只为防 Stop 与工作线程同时改（Join 超时的极端情况）。</summary>
-    private void SetPeriod(bool on)
-    {
-        lock (_periodSync)
-        {
-            if (_periodRaised == on) return;
-            if (on) timeBeginPeriod(1); else timeEndPeriod(1);
-            _periodRaised = on;
-        }
     }
 
     /// <summary>只在第一次失败时记日志并通知 UI，避免一分钟写几万行/弹几万个气泡。</summary>
